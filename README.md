@@ -9,5 +9,6 @@ The location of the rotating 45° mirror 10 is fixed. The vertical mirror 9 is d
 <a href="https://youtube.com/shorts/WtBLADxNRh4" target="_blank"><img src="images/demo.jpg" width="583" height="640" border="10" /></a>
 
 Video: https://youtube.com/shorts/WtBLADxNRh4
+
 Video: https://www.youtube.com/shorts/ZilCZabeLMg (debuging with single mirror and led)
 

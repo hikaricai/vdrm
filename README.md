@@ -12,3 +12,6 @@ Video: https://youtube.com/shorts/WtBLADxNRh4
 
 Video: https://www.youtube.com/shorts/ZilCZabeLMg (debuging with single mirror and led)
 
+Video: https://www.youtube.com/shorts/ft3zD9OViyE (debuging with two mirrors and led)
+
+

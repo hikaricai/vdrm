@@ -8,6 +8,8 @@ The location of the rotating 45° mirror 10 is fixed. The vertical mirror 9(can 
 
 <a href="https://youtube.com/shorts/WtBLADxNRh4" target="_blank"><img src="images/demo.jpg" width="583" height="640" border="10" /></a>
 
+hackaday: https://hackaday.io/project/194714-volumetric-display-using-rotating-mirror
+
 Video: https://youtube.com/shorts/WtBLADxNRh4
 
 Video: https://www.youtube.com/shorts/ZilCZabeLMg (debuging with single mirror and led)

@@ -19,3 +19,5 @@ Video: https://www.youtube.com/shorts/ft3zD9OViyE (debuging with two mirrors and
 Video: https://www.youtube.com/shorts/52YA3tK1XmA (debuging with single mirror and led, showing a volumetric Aescartes Heart Curve.)
 
 Video: https://www.youtube.com/shorts/yh6b7pyUaBM (debuging with high speed camera)
+
+Video: https://www.youtube.com/shorts/uKBhVhGyDE0 (debuging with one mirror and three surrouding led screens)

@@ -21,3 +21,5 @@ Video: https://www.youtube.com/shorts/52YA3tK1XmA (debuging with single mirror a
 Video: https://www.youtube.com/shorts/yh6b7pyUaBM (debuging with high speed camera)
 
 Video: https://www.youtube.com/shorts/uKBhVhGyDE0 (debuging with one mirror and three surrouding led screens)
+
+Video: https://www.youtube.com/shorts/99Vo0eT40mk (showing a half pyramid)

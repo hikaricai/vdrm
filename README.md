@@ -8,6 +8,14 @@ The location of the rotating 45° mirror 10 is fixed. The vertical mirror 9(can 
 
 <a href="https://youtube.com/shorts/yh6b7pyUaBM" target="_blank"><img src="images/demo.jpg" width="800" height="600" border="10" /></a>
 
+<a target="_blank"><img src="images/vdrm2_hardware.jpg" width="583" height="640" border="10" /></a>
+
+version 2.0 demo hardware with one mirror and three surrouding led screens
+
+<a target="_blank"><img src="images/half_pyramid.jpg" width="583" height="640" border="10" /></a>
+
+showing a half pyramid
+
 hackaday: https://hackaday.io/project/194714-volumetric-display-using-rotating-mirror
 
 Video: https://youtube.com/shorts/WtBLADxNRh4

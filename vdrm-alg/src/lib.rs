@@ -21,6 +21,14 @@ struct ScreenLinePixels {
     pixels: [Option<PixelColor>; W_PIXELS],
 }
 
+impl Default for ScreenLinePixels {
+    fn default() -> Self {
+        Self {
+            pixels: [None; W_PIXELS],
+        }
+    }
+}
+
 lazy_static::lazy_static! {
     static ref SCREENS:[Screen; 3]  = {
         let u:(f32, f32) = (-2., 0.);
@@ -141,11 +149,12 @@ fn cacl_z_pixel(
         return None;
     };
     let px = screens[screen_idx].xy_line.start;
-    let len_ps_px = px.euclidean_distance(&ps);
-    let len_p1_px = px.euclidean_distance(&line_p1_p2.start);
-    let view_h = CIRCLE_R * 2. - len_p1_px;
+    let len_ps_px = ps.euclidean_distance(&px);
+    let len_ps_p1 = ps.euclidean_distance(&line_p1_p2.start);
+    let view_h = CIRCLE_R * 2. - len_ps_p1;
     let screen_pixel_h = p1.z;
     let addr = v_to_pixel(len_ps_px - CIRCLE_R)?;
+
     let pixel = v_to_pixel(screen_pixel_h)?;
     Some(PixelZInfo {
         angle,
@@ -195,7 +204,7 @@ impl Codec {
             for x in 0..W_PIXELS {
                 for y in 0..W_PIXELS {
                     let (x, y) = (x as u32, y as u32);
-                    let Some(z) = cacl_z_pixel(&SCREENS, mat, angle, x, y) else {
+                    let Some(z) = cacl_z_pixel(&*SCREENS, mat, angle, x, y) else {
                         continue;
                     };
                     let entry = xy_map.entry((x, y)).or_default();
@@ -301,7 +310,7 @@ impl Codec {
     pub fn decode_all(&self, angle_map: AngleMap) -> FloatSurface {
         let mut float_surface = FloatSurface::default();
         for (angle, lines) in angle_map {
-            self.decode(angle, lines.as_slice())
+            float_surface.extend(self.decode(angle, lines.as_slice()));
         }
         float_surface
     }

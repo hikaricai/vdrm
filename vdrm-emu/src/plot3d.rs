@@ -1,12 +1,13 @@
 use crate::DrawResult;
+use plotters::coord::ranged3d::ProjectionMatrix;
 use plotters::prelude::*;
 use plotters_canvas::CanvasBackend;
+use std::collections::BTreeMap;
 use web_sys::HtmlCanvasElement;
 
-
 lazy_static::lazy_static! {
-    static ref SURFACES: Surfaces = {
-        Surfaces::new()
+    static ref CTX: Ctx = {
+        Ctx::new()
     };
 }
 
@@ -32,27 +33,111 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
     }
     pixel_surface
 }
-
-struct Surfaces {
-    real: vdrm_alg::FloatSurface,
-    emu: vdrm_alg::FloatSurface,
+struct Mirror {
+    points: [(f32, f32, f32); 4],
+}
+impl Mirror {
+    fn new(len: f32, angle: u32) -> Self {
+        let angle = vdrm_alg::angle_to_v(angle);
+        let mat = glam::Mat2::from_angle(angle);
+        let points = [
+            (len, len, -len),
+            (-len, len, len),
+            (-len, -len, len),
+            (len, -len, -len),
+        ];
+        let points = points.map(|(x, y, z)| {
+            let p = mat * glam::Vec2::new(x, y);
+            (p.x, p.y, z)
+        });
+        Self { points }
+    }
+    fn polygon(&self) -> Polygon<(f32, f32, f32)> {
+        Polygon::new(self.points, BLACK.mix(0.2))
+    }
 }
 
-impl Surfaces {
+struct Screen {
+    points: [(f32, f32, f32); 4],
+}
+
+impl Screen {
+    fn new(idx: usize) -> Self {
+        let xy_line = vdrm_alg::screens()[idx].xy_line;
+        let (a, b) = xy_line.points();
+        let points = [
+            (a.x(), a.y(), -1.),
+            (a.x(), a.y(), 1.),
+            (b.x(), b.y(), 1.),
+            (b.x(), b.y(), -1.),
+        ];
+        Self { points }
+    }
+
+    fn polygon(&self) -> Polygon<(f32, f32, f32)> {
+        Polygon::new(self.points, BLACK.mix(0.8))
+    }
+}
+
+struct AngleCtx {
+    mirror: Mirror,
+    led_pixels: Vec<(f32, f32, f32)>,
+    emu_pixels: Vec<(f32, f32, f32)>,
+}
+struct Ctx {
+    angle_ctx_map: BTreeMap<u32, AngleCtx>,
+    all_real_pixels: Vec<(f32, f32, f32)>,
+    all_emu_pixels: Vec<(f32, f32, f32)>,
+    all_led_pixels: Vec<(f32, f32, f32)>,
+    screens: [Screen; 3],
+}
+
+impl Ctx {
     fn new() -> Self {
         let codec = vdrm_alg::Codec::new();
         let pixel_surface = gen_pyramid_surface();
-        let real = vdrm_alg::pixel_surface_to_float(&pixel_surface).into_iter().map(|(x, y, z)|(x, z - 2., y)).collect();
+        let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
+            .into_iter()
+            .map(|(x, y, z)| (x, y, z - 2.))
+            .collect();
         let angle_map = codec.encode(&pixel_surface, 0);
-        let emu = codec.decode_all(angle_map).into_iter().map(|(x, y, z)|(x, z, y)).collect();
+        let (mut all_emu_pixels, mut all_led_pixels) = (vec![], vec![]);
+        let angle_ctx_map = (0..vdrm_alg::TOTAL_ANGLES as u32)
+            .map(|angle| {
+                let mirror = Mirror::new(1. / 2_f32.sqrt(), angle);
+                let Some(lines) = angle_map.get(&angle) else {
+                    return (
+                        angle,
+                        AngleCtx {
+                            mirror,
+                            led_pixels: vec![],
+                            emu_pixels: vec![],
+                        },
+                    );
+                };
+                let (emu_pixels, led_pixels) = codec.decode(angle, lines);
+                all_emu_pixels.extend(emu_pixels.clone());
+                all_led_pixels.extend(led_pixels.clone());
+                let angle_ctx = AngleCtx {
+                    mirror,
+                    led_pixels,
+                    emu_pixels,
+                };
+                (angle, angle_ctx)
+            })
+            .collect();
+
         Self {
-            real,
-            emu,
+            angle_ctx_map,
+            all_real_pixels,
+            all_emu_pixels,
+            all_led_pixels,
+            screens: [0, 1, 2].map(|idx| Screen::new(idx)),
         }
     }
 }
 
-pub fn draw(canvas: HtmlCanvasElement, pitch: f64, yaw: f64) -> DrawResult<()> {
+pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64) -> DrawResult<()> {
     let area = CanvasBackend::with_canvas_object(canvas)
         .unwrap()
         .into_drawing_area();
@@ -60,51 +145,99 @@ pub fn draw(canvas: HtmlCanvasElement, pitch: f64, yaw: f64) -> DrawResult<()> {
 
     let axis_len = 1.5_f32;
     let x_axis = (-axis_len..axis_len).step(0.1);
-    let z_axis = (-axis_len..axis_len).step(0.1);
+    let y_axis = (-axis_len..axis_len).step(0.1);
 
-    let mut chart =
-        ChartBuilder::on(&area).build_cartesian_3d(x_axis.clone(), -axis_len..axis_len, z_axis.clone())?;
+    let mut chart = ChartBuilder::on(&area).build_cartesian_3d(
+        x_axis.clone(),
+        y_axis.clone(),
+        -axis_len..axis_len,
+    )?;
+    chart.with_projection(| _pb| {
+        let (x, y) = area.get_pixel_range();
+        let v = (x.end - x.start).min(y.end - y.start) * 4 / 5 / 2;
+        let before = (v, v, v);
+        let after = ((x.start + x.end) / 2, (y.start + y.end) / 2);
 
-    chart.with_projection(|mut pb| {
-        pb.yaw = yaw;
-        pb.pitch = pitch;
-        pb.scale = 0.7;
-        pb.into_matrix()
+        let mut mat = if before == (0, 0, 0) {
+            ProjectionMatrix::default()
+        } else {
+            let (x, y, z) = before;
+            ProjectionMatrix::shift(-x as f64, -y as f64, -z as f64) * ProjectionMatrix::default()
+        };
+        if yaw.abs() > 1e-20 {
+            mat = mat * ProjectionMatrix::rotate(0.0, 0.0, yaw);
+        }
+        if pitch.abs() > 1e-20 {
+            mat = mat * ProjectionMatrix::rotate(pitch, 0.0, 0.0);
+        }
+        mat = mat * ProjectionMatrix::scale(0.7);
+        if after != (0, 0) {
+            let (x, y) = after;
+            mat = mat * ProjectionMatrix::shift(x as f64, y as f64, 0.0);
+        }
+        mat
     });
 
     chart.configure_axes().draw()?;
 
-    let axis_title_style = ("sans-serif", 20, &BLACK).into_text_style(&area);
     chart
         .draw_series(
             [
-                ("x", (axis_len, -axis_len, -axis_len)),
-                ("y", (-axis_len, axis_len, -axis_len)),
-                ("z", (-axis_len, -axis_len, axis_len)),
+                ("x", (axis_len, -axis_len, -axis_len), &RED),
+                ("y", (-axis_len, axis_len, -axis_len), &GREEN),
+                ("z", (-axis_len, -axis_len, axis_len), &BLUE),
             ]
-            .map(|(label, position)| Text::new(label, position, &axis_title_style)),
+            .map(|(label, position, color)| {
+                Text::new(
+                    label,
+                    position,
+                    ("sans-serif", 20, color).into_text_style(&area),
+                )
+            }),
         )
         .unwrap();
-
-    // let mut line_points = vec![];
-    // for line in line_points.clone() {
-    //     chart.draw_series(LineSeries::new(line, &BLACK))?;
-    // }
-    //
-    // let x_axis = (-1.0..1.0).step(0.1);
-    // let z_axis = (-1.0..1.0).step(0.1);
-
-    // let low_surface = SurfaceSeries::xoz(x_axis.values(), z_axis.values(), |x: f64, z: f64| {
-    //     let (x_u64, z_u64): (u64, u64) = unsafe { std::mem::transmute((x, z)) };
-    //     let y = surface_map.get(&(x_u64, z_u64)).unwrap().0;
-    //     y
-    // });
+    let screen_polygons = CTX.screens.iter().map(|v| v.polygon());
+    chart
+        .draw_series(screen_polygons)?
+        .label("SCREEN")
+        .legend(|(x, y)| {
+            Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.9).filled())
+        });
     let real_surface_points: PointSeries<_, _, Circle<_, _>, _> =
-        PointSeries::new(SURFACES.real.clone(), 1_f64, &BLUE.mix(0.2));
-    chart.draw_series(real_surface_points)?;
+        PointSeries::new(CTX.all_real_pixels.clone(), 1_f64, &BLUE.mix(0.2));
+    chart
+        .draw_series(real_surface_points)?
+        .label("REAL")
+        .legend(|(x, y)| Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLUE.mix(0.5).filled()));
+
+    let (emu, led) = match angle {
+        None => {
+            (CTX.all_emu_pixels.clone(), CTX.all_led_pixels.clone())
+        }
+        Some(angle) => {
+            let angle_ctx = CTX.angle_ctx_map.get(&angle).unwrap();
+            chart
+                .draw_series([angle_ctx.mirror.polygon()])?
+                .label("MIRROR")
+                .legend(|(x, y)| {
+                    Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.5).filled())
+                });
+
+            (angle_ctx.emu_pixels.clone(), angle_ctx.led_pixels.clone())
+        }
+    };
 
     let emu_surface_points: PointSeries<_, _, Circle<_, _>, _> =
-        PointSeries::new(SURFACES.emu.clone(), 1_f64, &RED.mix(0.2));
-    chart.draw_series(emu_surface_points)?;
+        PointSeries::new(emu, 1_f64, &RED.mix(0.3));
+    chart
+        .draw_series(emu_surface_points)?
+        .label("EMULATOR")
+        .legend(|(x, y)| Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], RED.mix(0.5).filled()));
+
+    let led_surface_points: PointSeries<_, _, Circle<_, _>, _> =
+        PointSeries::new(led, 1_f64, &RED.mix(0.8));
+    chart.draw_series(led_surface_points)?;
+
+    chart.configure_series_labels().border_style(BLACK).draw()?;
     Ok(())
 }

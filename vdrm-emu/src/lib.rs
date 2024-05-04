@@ -12,13 +12,17 @@ pub type DrawResult<T> = Result<T, Box<dyn std::error::Error>>;
 /// Type used on the JS side to convert screen coordinates to chart
 /// coordinates.
 #[wasm_bindgen]
-pub struct Chart {
-}
+pub struct Chart {}
 
 #[wasm_bindgen]
 impl Chart {
-    pub fn plot3d(canvas: HtmlCanvasElement, pitch: f64, yaw: f64) -> Result<(), JsValue> {
-        plot3d::draw(canvas, pitch, yaw).map_err(|err| err.to_string())?;
+    pub fn plot3d(
+        canvas: HtmlCanvasElement,
+        angle: Option<u32>,
+        pitch: f64,
+        yaw: f64,
+    ) -> Result<(), JsValue> {
+        plot3d::draw(canvas, angle, pitch, yaw).map_err(|err| err.to_string())?;
         Ok(())
     }
 }

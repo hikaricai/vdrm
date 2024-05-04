@@ -1,5 +1,4 @@
 use geo::{EuclideanDistance, LineInterpolatePoint, LineIntersection};
-use glam::Vec3Swizzles;
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
@@ -41,6 +40,9 @@ lazy_static::lazy_static! {
     };
 }
 
+pub fn screens() -> [Screen; 3] {
+    *SCREENS
+}
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct ScreenPixel {
     idx: usize,
@@ -50,8 +52,6 @@ struct ScreenPixel {
 
 struct PixelZInfo {
     angle: u32,
-    // 从底部向下增长
-    value: f32,
     pixel: u32,
     screen_pixel: ScreenPixel,
 }
@@ -67,8 +67,9 @@ pub type AngleMap = BTreeMap<u32, Vec<ScreenLine>>;
 
 type PixelXYMap = BTreeMap<PixelXY, Vec<PixelZInfo>>;
 
-struct Screen {
-    xy_line: geo::Line<f32>,
+#[derive(Copy, Clone)]
+pub struct Screen {
+    pub xy_line: geo::Line<f32>,
 }
 
 impl Screen {
@@ -114,7 +115,7 @@ fn h_to_pixel(h: f32) -> u32 {
     (h / point_size - 0.5) as u32
 }
 
-fn angle_to_v(p: u32) -> f32 {
+pub fn angle_to_v(p: u32) -> f32 {
     ((p * 360 / TOTAL_ANGLES as u32) as f32).to_radians()
 }
 
@@ -158,7 +159,6 @@ fn cacl_z_pixel(
     let pixel = v_to_pixel(screen_pixel_h)?;
     Some(PixelZInfo {
         angle,
-        value: view_h,
         pixel: h_to_pixel(view_h),
         screen_pixel: ScreenPixel {
             idx: screen_idx,
@@ -168,15 +168,24 @@ fn cacl_z_pixel(
     })
 }
 
-fn cacl_view_point(mat: glam::Mat3A, screen_idx: usize, addr: u32, pixel_z: u32) -> (f32, f32, f32) {
+fn cacl_view_point(
+    mat: glam::Mat3A,
+    screen_idx: usize,
+    addr: u32,
+    pixel_z: u32,
+) -> ((f32, f32, f32), (f32, f32, f32)) {
     let screen = &SCREENS[screen_idx];
     let len_start_s = pixel_to_v(addr) + CIRCLE_R;
     let fraction = len_start_s / (CIRCLE_R * 2.);
-    let xy: geo::Coord<_> = screen.xy_line.line_interpolate_point(fraction).unwrap().into();
+    let xy: geo::Coord<_> = screen
+        .xy_line
+        .line_interpolate_point(fraction)
+        .unwrap()
+        .into();
     let z = pixel_to_v(pixel_z);
     let p = glam::Vec3A::new(xy.x, xy.y, z);
     let p_view = mat * p;
-    (p_view.x, p_view.y, p_view.z)
+    ((p_view.x, p_view.y, p_view.z), (p.x, p.y, p.z))
 }
 
 pub struct Codec {
@@ -290,8 +299,9 @@ impl Codec {
             })
             .collect()
     }
-    pub fn decode(&self, angle: u32, lines: &[ScreenLine]) -> FloatSurface {
-        let mut float_surface = FloatSurface::default();
+    pub fn decode(&self, angle: u32, lines: &[ScreenLine]) -> (FloatSurface, FloatSurface) {
+        let mut view_surface = FloatSurface::default();
+        let mut led_surface = FloatSurface::default();
         for ScreenLine {
             screen_idx,
             addr,
@@ -302,16 +312,21 @@ impl Codec {
                 let Some(_pixel) = pixel else { continue };
                 let pixel_z = idx as u32;
                 let mat = self.mat_map.get(&angle).unwrap();
-                float_surface.push(cacl_view_point(*mat, *screen_idx, *addr, pixel_z));
+                let (view, led) = cacl_view_point(*mat, *screen_idx, *addr, pixel_z);
+                view_surface.push(view);
+                led_surface.push(led);
             }
         }
-        float_surface
+        (view_surface, led_surface)
     }
-    pub fn decode_all(&self, angle_map: AngleMap) -> FloatSurface {
-        let mut float_surface = FloatSurface::default();
+    pub fn decode_all(&self, angle_map: AngleMap) -> (FloatSurface, FloatSurface) {
+        let mut view_surface = FloatSurface::default();
+        let mut led_surface = FloatSurface::default();
         for (angle, lines) in angle_map {
-            float_surface.extend(self.decode(angle, lines.as_slice()));
+            let (view, led) = self.decode(angle, lines.as_slice());
+            view_surface.extend(view);
+            led_surface.extend(led);
         }
-        float_surface
+        (view_surface, led_surface)
     }
 }

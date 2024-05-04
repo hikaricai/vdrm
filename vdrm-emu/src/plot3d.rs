@@ -186,6 +186,7 @@ pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64)
                 ("x", (axis_len, -axis_len, -axis_len), &RED),
                 ("y", (-axis_len, axis_len, -axis_len), &GREEN),
                 ("z", (-axis_len, -axis_len, axis_len), &BLUE),
+                ("o'", (-axis_len, -axis_len, -axis_len), &CYAN),
             ]
             .map(|(label, position, color)| {
                 Text::new(

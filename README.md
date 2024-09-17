@@ -8,6 +8,7 @@ The location of the rotating 45° mirror 10 is fixed. The vertical mirror 9(can 
 
 <a href="https://youtube.com/shorts/yh6b7pyUaBM" target="_blank"><img src="images/demo.jpg" width="800" height="600" border="10" /></a>
 
+## version 2.0
 <a target="_blank"><img src="images/vdrm2_hardware.jpg" width="583" height="640" border="10" /></a>
 
 version 2.0 demo hardware with one mirror and three surrouding led screens
@@ -31,3 +32,6 @@ Video: https://www.youtube.com/shorts/yh6b7pyUaBM (debuging with high speed came
 Video: https://www.youtube.com/shorts/uKBhVhGyDE0 (debuging with one mirror and three surrouding led screens)
 
 Video: https://www.youtube.com/shorts/99Vo0eT40mk (showing a half pyramid)
+
+## version 3.0
+Working in progress, just replace the spinning mirror with aska3d's ASKA3D-Plate, so the volumetric image will be show in midair and become touchable.

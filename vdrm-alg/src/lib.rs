@@ -30,13 +30,20 @@ impl Default for ScreenLinePixels {
 
 lazy_static::lazy_static! {
     static ref SCREENS:[Screen; 3]  = {
-        let u:(f32, f32) = (-2., 0.);
-        let v:(f32, f32) = (-1., -1.);
-        let w:(f32, f32) = (1., -1.);
-        let x:(f32, f32) = (1. + 0.5_f32.sqrt(), 1. - 0.5_f32.sqrt());
-        let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
-        let z:(f32, f32) = (-1., 3.0_f32.sqrt());
-        [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
+        // let u:(f32, f32) = (-2., 0.);
+        // let v:(f32, f32) = (-1., -1.);
+        // let w:(f32, f32) = (1., -1.);
+        // let x:(f32, f32) = (1. + 0.5_f32.sqrt(), 1. - 0.5_f32.sqrt());
+        // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
+        // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
+        // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
+        let a:(f32, f32) = (-1., 1.);
+        let b:(f32, f32) = (-0.9, 3.);
+        let c:(f32, f32) = (0., 1.);
+        let d:(f32, f32) = (0.1, 3.);
+        let e:(f32, f32) = (1., 1.);
+        let f:(f32, f32) = (1.1, 3.);
+        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
     };
 }
 

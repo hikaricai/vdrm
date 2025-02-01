@@ -21,8 +21,11 @@ impl Chart {
         angle: Option<u32>,
         pitch: f64,
         yaw: f64,
+        min_angle: usize,
+        max_angle: usize,
     ) -> Result<(), JsValue> {
-        plot3d::draw(canvas, angle, pitch, yaw).map_err(|err| err.to_string())?;
+        let angle_range = min_angle..max_angle;
+        plot3d::draw(canvas, angle, pitch, yaw, angle_range).map_err(|err| err.to_string())?;
         Ok(())
     }
 }

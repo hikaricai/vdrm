@@ -1,31 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Vdrm Plotters WebAssembly Demo</title>
-    <link rel="stylesheet" href="./style.css">
-</head>
-<body>
-<noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<script src="./bootstrap.js"></script>
-<main class="grid-container">
-    <div class="grid-item">
-        <div id="coord"></div>
-        <canvas id="canvas" width="600" height="600"></canvas>
-    </div>
-    <div id="control" class="grid-item">
-        <label for="showall">show all: </label> <input type="checkbox" id="showall" checked> <br/>
-        <label for="angle">Angle: </label> <input type="range" min="0" max="359" id="angle" value="0"> <br/>
-        <label for="pitch">Pitch: </label> <input type="range" min="-157" max="157" id="pitch" value="-10"> <br/>
-        <label for="yaw">Yaw: </label> <input type="range" min="0" max="314" id="yaw" value="50">
-    </div>
-</main>
-<footer>
-    <a href="https://github.com/plotters-rs/plotters-wasm-demo" target="a">Source</a> |
-    <a href="https://github.com/plotters-rs/plotters" target="a">Repo</a> |
-    <a href="https://crates.io/crates/plotters" target="a">Crates</a> |
-    <a href="https://docs.rs/plotters" target="a">Docs</a>
-</footer>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Vdrm Plotters WebAssembly Demo</title>
+        <link rel="stylesheet" href="./style.css" />
+    </head>
+    <body>
+        <noscript
+            >This page contains webassembly and javascript content, please
+            enable javascript in your browser.</noscript
+        >
+        <script src="./bootstrap.js"></script>
+        <main class="grid-container">
+            <div class="grid-item">
+                <div id="coord"></div>
+                <canvas id="canvas" width="600" height="600"></canvas>
+            </div>
+            <div id="control" class="grid-item">
+                <label for="showall">show all: </label>
+                <input type="checkbox" id="showall" checked /> <br />
+                <label for="angle">Angle: </label>
+                <input type="range" min="0" max="359" id="angle" value="0" />
+                <br />
+                <label for="min_angle">MinAngle: </label>
+                <input
+                    type="range"
+                    min="0"
+                    max="359"
+                    id="min_angle"
+                    value="0"
+                />
+                <br />
+                <label for="max_angle">MaxAngle: </label>
+                <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    id="max_angle"
+                    value="360"
+                />
+                <br />
+                <label for="pitch">Pitch: </label>
+                <input
+                    type="range"
+                    min="-157"
+                    max="157"
+                    id="pitch"
+                    value="-10"
+                />
+                <br />
+                <label for="yaw">Yaw: </label>
+                <input type="range" min="0" max="314" id="yaw" value="50" />
+            </div>
+        </main>
+        <footer>
+            <a
+                href="https://github.com/plotters-rs/plotters-wasm-demo"
+                target="a"
+                >Source</a
+            >
+            |
+            <a href="https://github.com/plotters-rs/plotters" target="a"
+                >Repo</a
+            >
+            |
+            <a href="https://crates.io/crates/plotters" target="a">Crates</a> |
+            <a href="https://docs.rs/plotters" target="a">Docs</a>
+        </footer>
+    </body>
 </html>

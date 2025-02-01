@@ -16,6 +16,8 @@ plotters-canvas = "^0.3.0"
 geo = "0.28"
 lazy_static = "1.4"
 glam = "0.27.0"
+log = "0.4.25"
+wasm-logger = "0.2.0"
 
 [profile.release]
 lto = true

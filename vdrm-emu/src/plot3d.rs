@@ -5,11 +5,7 @@ use plotters_canvas::CanvasBackend;
 use std::collections::BTreeMap;
 use web_sys::HtmlCanvasElement;
 
-lazy_static::lazy_static! {
-    static ref CTX: Ctx = {
-        Ctx::new()
-    };
-}
+static CTX: std::sync::Mutex<Option<Ctx>> = std::sync::Mutex::new(None);
 
 pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
     let mut pixel_surface = vdrm_alg::PixelSurface::new();
@@ -84,17 +80,19 @@ struct AngleCtx {
     led_pixels: Vec<(f32, f32, f32)>,
     emu_pixels: Vec<(f32, f32, f32)>,
 }
+
 struct Ctx {
     angle_ctx_map: BTreeMap<u32, AngleCtx>,
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
     screens: [Screen; 3],
+    angle_range: std::ops::Range<usize>,
 }
 
 impl Ctx {
-    fn new() -> Self {
-        let codec = vdrm_alg::Codec::new();
+    fn new(angle_range: std::ops::Range<usize>) -> Self {
+        let codec = vdrm_alg::Codec::new(angle_range.clone());
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
@@ -133,11 +131,28 @@ impl Ctx {
             all_emu_pixels,
             all_led_pixels,
             screens: [0, 1, 2].map(|idx| Screen::new(idx)),
+            angle_range,
         }
     }
 }
 
-pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64) -> DrawResult<()> {
+pub fn draw(
+    canvas: HtmlCanvasElement,
+    angle: Option<u32>,
+    pitch: f64,
+    yaw: f64,
+    angle_range: std::ops::Range<usize>,
+) -> DrawResult<()> {
+    static INIT_LOG: std::sync::Once = std::sync::Once::new();
+    INIT_LOG.call_once(|| {
+        wasm_logger::init(wasm_logger::Config::new(log::Level::Trace));
+    });
+    log::info!("draw");
+    let mut guard = CTX.lock().unwrap();
+    let ctx = guard.get_or_insert_with(|| Ctx::new(angle_range.clone()));
+    if ctx.angle_range != angle_range {
+        *ctx = Ctx::new(angle_range);
+    }
     let area = CanvasBackend::with_canvas_object(canvas)
         .unwrap()
         .into_drawing_area();
@@ -152,7 +167,7 @@ pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64)
         y_axis.clone(),
         -axis_len..axis_len,
     )?;
-    chart.with_projection(| _pb| {
+    chart.with_projection(|_pb| {
         let (x, y) = area.get_pixel_range();
         let v = (x.end - x.start).min(y.end - y.start) * 4 / 5 / 2;
         let before = (v, v, v);
@@ -197,7 +212,7 @@ pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64)
             }),
         )
         .unwrap();
-    let screen_polygons = CTX.screens.iter().map(|v| v.polygon());
+    let screen_polygons = ctx.screens.iter().map(|v| v.polygon());
     chart
         .draw_series(screen_polygons)?
         .label("SCREEN")
@@ -205,18 +220,16 @@ pub fn draw(canvas: HtmlCanvasElement, angle: Option<u32>, pitch: f64, yaw: f64)
             Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.9).filled())
         });
     let real_surface_points: PointSeries<_, _, Circle<_, _>, _> =
-        PointSeries::new(CTX.all_real_pixels.clone(), 1_f64, &BLUE.mix(0.2));
+        PointSeries::new(ctx.all_real_pixels.clone(), 1_f64, &BLUE.mix(0.2));
     chart
         .draw_series(real_surface_points)?
         .label("REAL")
         .legend(|(x, y)| Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLUE.mix(0.5).filled()));
 
     let (emu, led) = match angle {
-        None => {
-            (CTX.all_emu_pixels.clone(), CTX.all_led_pixels.clone())
-        }
+        None => (ctx.all_emu_pixels.clone(), ctx.all_led_pixels.clone()),
         Some(angle) => {
-            let angle_ctx = CTX.angle_ctx_map.get(&angle).unwrap();
+            let angle_ctx = ctx.angle_ctx_map.get(&angle).unwrap();
             chart
                 .draw_series([angle_ctx.mirror.polygon()])?
                 .label("MIRROR")

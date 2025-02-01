@@ -38,11 +38,11 @@ lazy_static::lazy_static! {
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
         let a:(f32, f32) = (-1., 1.);
-        let b:(f32, f32) = (-0.9, 3.);
-        let c:(f32, f32) = (0., 1.);
-        let d:(f32, f32) = (0.1, 3.);
-        let e:(f32, f32) = (1., 1.);
-        let f:(f32, f32) = (1.1, 3.);
+        let b:(f32, f32) = (-1. + 0.1, 3.);
+        let c:(f32, f32) = (-1. + 2. / 3., 1.);
+        let d:(f32, f32) = (-1. + 2. / 3. + 0.1, 3.);
+        let e:(f32, f32) = (-1. + 4. / 3., 1.);
+        let f:(f32, f32) = (-1. + 4. / 3. + 0.1, 3.);
         [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
     };
 }
@@ -73,6 +73,8 @@ pub struct ScreenLine {
 pub type AngleMap = BTreeMap<u32, Vec<ScreenLine>>;
 
 type PixelXYMap = BTreeMap<PixelXY, Vec<PixelZInfo>>;
+type PixelZInfoList = Vec<PixelZInfo>;
+type PixelXYArr = Vec<Vec<PixelZInfoList>>;
 
 #[derive(Copy, Clone)]
 pub struct Screen {
@@ -197,14 +199,26 @@ fn cacl_view_point(
 
 pub struct Codec {
     xy_map: PixelXYMap,
+    xy_arr: PixelXYArr,
     mat_map: BTreeMap<u32, glam::Mat3A>,
 }
 
 impl Codec {
-    pub fn new() -> Self {
-        let mut xy_map = PixelXYMap::default();
+    pub fn new(angle_range: std::ops::Range<usize>) -> Self {
+        let xy_map = PixelXYMap::default();
+        let mut xy_arr = PixelXYArr::new();
+        for _x in 0..W_PIXELS {
+            let mut line = vec![];
+            line.extend(
+                std::iter::repeat(())
+                    .take(W_PIXELS)
+                    .map(|_| PixelZInfoList::new()),
+            );
+            xy_arr.push(line);
+        }
         let mut mat_map = BTreeMap::new();
-        for angle in 0..TOTAL_ANGLES as u32 {
+        for angle in angle_range {
+            let angle = angle as u32;
             let angle_f = angle_to_v(angle);
             let sin = angle_f.sin();
             let cos = angle_f.cos();
@@ -219,26 +233,33 @@ impl Codec {
             mat_map.insert(angle, mat);
             for x in 0..W_PIXELS {
                 for y in 0..W_PIXELS {
-                    let (x, y) = (x as u32, y as u32);
-                    let Some(z) = cacl_z_pixel(&*SCREENS, mat, angle, x, y) else {
+                    let Some(z) = cacl_z_pixel(&*SCREENS, mat, angle, x as u32, y as u32) else {
                         continue;
                     };
-                    let entry = xy_map.entry((x, y)).or_default();
-                    entry.push(z);
+                    xy_arr[x][y].push(z);
                 }
             }
         }
-        for z_info in xy_map.values_mut() {
-            z_info.sort_by_key(|v| v.pixel);
+        for line in xy_arr.iter_mut() {
+            for colom in line.iter_mut() {
+                colom.sort_by_key(|v| v.pixel);
+            }
         }
-        Self { xy_map, mat_map }
+        Self {
+            xy_map,
+            xy_arr,
+            mat_map,
+        }
     }
 
     pub fn encode(&self, pixel_surface: &PixelSurface, pixel_offset: i32) -> AngleMap {
         let mut angle_map: BTreeMap<u32, BTreeMap<ScreenLineAddr, ScreenLinePixels>> =
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
-            let z_info_list = self.xy_map.get(&(x, y)).unwrap();
+            let z_info_list = &self.xy_arr[x as usize][y as usize];
+            if z_info_list.is_empty() {
+                continue;
+            }
             let z_info_idx = match z_info_list.binary_search_by_key(&z, |v| v.pixel) {
                 Ok(idx) => idx,
                 Err(idx) => {

@@ -130,6 +130,7 @@ pub fn angle_to_v(p: u32) -> f32 {
 
 fn cacl_z_pixel(
     screens: &[Screen],
+    region: usize,
     mat: glam::Mat3A,
     angle: u32,
     x: u32,
@@ -147,11 +148,18 @@ fn cacl_z_pixel(
 
     let line_p1_p2 = geo::Line::new((p1.x, p1.y), (p2.x, p2.y));
     let mut intersection_info = None;
-    for (idx, screen) in screens.iter().enumerate() {
+    let mut screen_idx = region;
+    loop {
+        let screen = &screens[screen_idx];
         if let Some(LineIntersection::SinglePoint { intersection, .. }) =
             geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2)
         {
-            intersection_info = Some((intersection, idx));
+            intersection_info = Some((intersection, screen_idx));
+            break;
+        }
+        screen_idx += screens.len() - 1;
+        screen_idx %= screens.len();
+        if screen_idx == region {
             break;
         }
     }
@@ -232,8 +240,11 @@ impl Codec {
             );
             mat_map.insert(angle, mat);
             for x in 0..W_PIXELS {
+                let region =
+                    x / ((W_PIXELS + SCREENS.len() - W_PIXELS % SCREENS.len()) / SCREENS.len());
                 for y in 0..W_PIXELS {
-                    let Some(z) = cacl_z_pixel(&*SCREENS, mat, angle, x as u32, y as u32) else {
+                    let Some(z) = cacl_z_pixel(&*SCREENS, region, mat, angle, x as u32, y as u32)
+                    else {
                         continue;
                     };
                     xy_arr[x][y].push(z);

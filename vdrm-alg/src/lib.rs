@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
-pub const TOTAL_ANGLES: usize = 360;
+pub const TOTAL_ANGLES: usize = 720;
 
 type PixelColor = u32;
 type PixelXY = (u32, u32);
@@ -29,7 +29,7 @@ impl Default for ScreenLinePixels {
 }
 
 lazy_static::lazy_static! {
-    static ref SCREENS:[Screen; 3]  = {
+    static ref SCREENS:[Screen; 1]  = {
         // let u:(f32, f32) = (-2., 0.);
         // let v:(f32, f32) = (-1., -1.);
         // let w:(f32, f32) = (1., -1.);
@@ -37,17 +37,14 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let a:(f32, f32) = (-1., 1.);
-        let b:(f32, f32) = (-1. + 0.1, 3.);
-        let c:(f32, f32) = (-1. + 2. / 3., 1.);
-        let d:(f32, f32) = (-1. + 2. / 3. + 0.1, 3.);
-        let e:(f32, f32) = (-1. + 4. / 3., 1.);
-        let f:(f32, f32) = (-1. + 4. / 3. + 0.1, 3.);
-        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
+        let a:(f32, f32) = (0., 1.);
+        // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
+        let b:(f32, f32) = (0., 1. + 2.);
+        [Screen::new([a, b])]
     };
 }
 
-pub fn screens() -> [Screen; 3] {
+pub fn screens() -> [Screen; 1] {
     *SCREENS
 }
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -108,10 +105,14 @@ fn pixel_to_v(p: u32) -> f32 {
 fn v_to_pixel(v: f32) -> Option<u32> {
     let point_size: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
     let v = (v + CIRCLE_R) / point_size - 0.5;
-    if v < 0. || v > 63. {
+    if v < 0. {
         return None;
     }
-    Some(v as u32)
+    let v = v as u32;
+    if v >= W_PIXELS as u32 {
+        return None;
+    }
+    Some(v)
 }
 
 fn pixel_to_h(p: u32) -> f32 {
@@ -143,7 +144,7 @@ fn cacl_z_pixel(
     if p1.z < -CIRCLE_R || p1.z > CIRCLE_R {
         return None;
     }
-    let p2_view = glam::Vec3A::new(x, y, -3.);
+    let p2_view = glam::Vec3A::new(x, y, -3. * CIRCLE_R);
     let p2 = mat * p2_view;
 
     let line_p1_p2 = geo::Line::new((p1.x, p1.y), (p2.x, p2.y));
@@ -206,14 +207,12 @@ fn cacl_view_point(
 }
 
 pub struct Codec {
-    xy_map: PixelXYMap,
     xy_arr: PixelXYArr,
     mat_map: BTreeMap<u32, glam::Mat3A>,
 }
 
 impl Codec {
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let xy_map = PixelXYMap::default();
         let mut xy_arr = PixelXYArr::new();
         for _x in 0..W_PIXELS {
             let mut line = vec![];
@@ -256,11 +255,7 @@ impl Codec {
                 colom.sort_by_key(|v| v.pixel);
             }
         }
-        Self {
-            xy_map,
-            xy_arr,
-            mat_map,
-        }
+        Self { xy_arr, mat_map }
     }
 
     pub fn encode(&self, pixel_surface: &PixelSurface, pixel_offset: i32) -> AngleMap {

@@ -9,11 +9,12 @@ static CTX: std::sync::Mutex<Option<Ctx>> = std::sync::Mutex::new(None);
 
 pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
     let mut pixel_surface = vdrm_alg::PixelSurface::new();
-    for x in 0..64_u32 {
-        for y in 0..64_u32 {
-            let x_i32 = x as i32 - 32;
-            let y_i32 = y as i32 - 32;
-            let h = 32 - (x_i32.abs() + y_i32.abs());
+    let r = vdrm_alg::W_PIXELS as i32 / 2;
+    for x in 0..vdrm_alg::W_PIXELS as u32 {
+        for y in 0..vdrm_alg::W_PIXELS as u32 {
+            let x_i32 = x as i32 - r;
+            let y_i32 = y as i32 - r;
+            let h = r - (x_i32.abs() + y_i32.abs());
             if h < 0 {
                 continue;
             }
@@ -86,7 +87,7 @@ struct Ctx {
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
-    screens: [Screen; 3],
+    screens: [Screen; 1],
     angle_range: std::ops::Range<usize>,
 }
 
@@ -130,7 +131,7 @@ impl Ctx {
             all_real_pixels,
             all_emu_pixels,
             all_led_pixels,
-            screens: [0, 1, 2].map(|idx| Screen::new(idx)),
+            screens: [0].map(|idx| Screen::new(idx)),
             angle_range,
         }
     }
@@ -146,6 +147,7 @@ pub fn draw(
     static INIT_LOG: std::sync::Once = std::sync::Once::new();
     INIT_LOG.call_once(|| {
         wasm_logger::init(wasm_logger::Config::new(log::Level::Trace));
+        console_error_panic_hook::set_once();
     });
     log::info!("draw");
     let mut guard = CTX.lock().unwrap();
@@ -242,7 +244,7 @@ pub fn draw(
     };
 
     let emu_surface_points: PointSeries<_, _, Circle<_, _>, _> =
-        PointSeries::new(emu, 1_f64, &RED.mix(0.3));
+        PointSeries::new(emu, 1_f32, &RED.mix(0.3));
     chart
         .draw_series(emu_surface_points)?
         .label("EMULATOR")

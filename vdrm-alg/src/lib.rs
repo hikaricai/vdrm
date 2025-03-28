@@ -1,10 +1,10 @@
-use geo::{EuclideanDistance, LineInterpolatePoint, LineIntersection};
+use geo::{EuclideanDistance, EuclideanLength, LineInterpolatePoint, LineIntersection};
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
-pub const TOTAL_ANGLES: usize = 720;
+pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
 
 type PixelColor = u32;
 type PixelXY = (u32, u32);
@@ -129,6 +129,25 @@ pub fn angle_to_v(p: u32) -> f32 {
     ((p * 360 / TOTAL_ANGLES as u32) as f32).to_radians()
 }
 
+fn frac_line(line: &geo::Line<f32>) -> Vec<geo::Coord<f32>> {
+    let point_size: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
+    let fraction = point_size / line.euclidean_length();
+    let mut next_fraction = fraction;
+    let mut points = vec![line.start];
+    loop {
+        if next_fraction > 1. {
+            break;
+        }
+        let Some(p) = line.line_interpolate_point(next_fraction) else {
+            break;
+        };
+        let p: geo::Coord<_> = p.into();
+        points.push(p);
+        next_fraction += fraction;
+    }
+    points
+}
+
 fn cacl_z_pixel(
     screens: &[Screen],
     region: usize,
@@ -136,13 +155,13 @@ fn cacl_z_pixel(
     angle: u32,
     x: u32,
     y: u32,
-) -> Option<PixelZInfo> {
+) -> Vec<PixelZInfo> {
     let x = pixel_to_v(x);
     let y = pixel_to_v(y);
     let p1_view = glam::Vec3A::new(x, y, 0.);
     let p1 = mat * p1_view;
     if p1.z < -CIRCLE_R || p1.z > CIRCLE_R {
-        return None;
+        return vec![];
     }
     let p2_view = glam::Vec3A::new(x, y, -3. * CIRCLE_R);
     let p2 = mat * p2_view;
@@ -165,17 +184,40 @@ fn cacl_z_pixel(
         }
     }
     let Some((ps, screen_idx)) = intersection_info else {
-        return None;
+        let mut screen_idx = region;
+        let mut near_cords: Vec<geo::Coord<f32>> = vec![];
+        loop {
+            let screen = &screens[screen_idx];
+            match geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2) {
+                Some(LineIntersection::Collinear { intersection }) => {
+                    near_cords = frac_line(&intersection);
+                    break;
+                }
+                None => {}
+                _ => unreachable!(),
+            }
+            screen_idx += screens.len() - 1;
+            screen_idx %= screens.len();
+            if screen_idx == region {
+                break;
+            }
+        }
+        return vec![];
     };
+
     let px = screens[screen_idx].xy_line.start;
     let len_ps_px = ps.euclidean_distance(&px);
     let len_ps_p1 = ps.euclidean_distance(&line_p1_p2.start);
     let view_h = CIRCLE_R * 2. - len_ps_p1;
     let screen_pixel_h = p1.z;
-    let addr = v_to_pixel(len_ps_px - CIRCLE_R)?;
+    let Some(addr) = v_to_pixel(len_ps_px - CIRCLE_R) else {
+        return vec![];
+    };
 
-    let pixel = v_to_pixel(screen_pixel_h)?;
-    Some(PixelZInfo {
+    let Some(pixel) = v_to_pixel(screen_pixel_h) else {
+        return vec![];
+    };
+    vec![PixelZInfo {
         angle,
         pixel: h_to_pixel(view_h),
         screen_pixel: ScreenPixel {
@@ -183,7 +225,7 @@ fn cacl_z_pixel(
             addr,
             pixel,
         },
-    })
+    }]
 }
 
 fn cacl_view_point(
@@ -242,11 +284,8 @@ impl Codec {
                 let region =
                     x / ((W_PIXELS + SCREENS.len() - W_PIXELS % SCREENS.len()) / SCREENS.len());
                 for y in 0..W_PIXELS {
-                    let Some(z) = cacl_z_pixel(&*SCREENS, region, mat, angle, x as u32, y as u32)
-                    else {
-                        continue;
-                    };
-                    xy_arr[x][y].push(z);
+                    let points = cacl_z_pixel(&*SCREENS, region, mat, angle, x as u32, y as u32);
+                    xy_arr[x][y].extend(points);
                 }
             }
         }

@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
-pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
+// pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+pub const TOTAL_ANGLES: usize = 360;
 
 type PixelColor = u32;
 type PixelXY = (u32, u32);
@@ -148,6 +150,59 @@ fn frac_line(line: &geo::Line<f32>) -> Vec<geo::Coord<f32>> {
     points
 }
 
+fn line_near_points(
+    line: &geo::Line<f32>,
+    rhs: &geo::Line<f32>,
+    threshold: f32,
+) -> Vec<geo::Coord<f32>> {
+    use geo::algorithm::closest_point::ClosestPoint;
+    let mut points: Vec<geo::Coord<f32>> = vec![];
+    let l: geo::Point<f32> = line.start.into();
+    let r: geo::Point<f32> = line.end.into();
+
+    let get_close_len = |p: &geo::Point<f32>| {
+        let close_p = match rhs.closest_point(&p) {
+            geo::Closest::Intersection(point) => point,
+            geo::Closest::SinglePoint(point) => point,
+            geo::Closest::Indeterminate => unreachable!(),
+        };
+        close_p.euclidean_distance(p)
+    };
+
+    let l_len = get_close_len(&l);
+    let r_len = get_close_len(&r);
+
+    let point_size: f32 = POINT_SIZE;
+    let fraction = point_size / line.euclidean_length();
+    let mut v = line.line_interpolate_point(fraction).unwrap();
+
+    let (mut iter_point, end_point, mut last_len) = if l_len <= r_len {
+        (l, r, l_len)
+    } else {
+        v = -v;
+        (r, l, r_len)
+    };
+    if last_len <= threshold {
+        points.push(iter_point.into());
+    }
+    loop {
+        iter_point += v;
+        let len = get_close_len(&iter_point);
+        if len <= threshold {
+            points.push(iter_point.into());
+        } else if len >= last_len {
+            break;
+        }
+        last_len = len;
+
+        // iter end
+        if (end_point - iter_point).dot(v) < 0. {
+            break;
+        }
+    }
+    points
+}
+
 fn cacl_z_pixel(
     screens: &[Screen],
     region: usize,
@@ -183,49 +238,58 @@ fn cacl_z_pixel(
             break;
         }
     }
-    let Some((ps, screen_idx)) = intersection_info else {
-        let mut screen_idx = region;
-        let mut near_cords: Vec<geo::Coord<f32>> = vec![];
-        loop {
-            let screen = &screens[screen_idx];
-            match geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2) {
-                Some(LineIntersection::Collinear { intersection }) => {
-                    near_cords = frac_line(&intersection);
-                    break;
-                }
-                None => {}
-                _ => unreachable!(),
-            }
-            screen_idx += screens.len() - 1;
-            screen_idx %= screens.len();
-            if screen_idx == region {
-                break;
-            }
+    let (points, screen_idx) = match intersection_info {
+        Some((p, screen_idx)) => (vec![p], screen_idx),
+        None => {
+            // let mut screen_idx = region;
+            // let mut near_cords: Vec<geo::Coord<f32>>;
+            // loop {
+            //     let screen = &screens[screen_idx];
+            //     match geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2) {
+            //         Some(LineIntersection::Collinear { intersection }) => {
+            //             near_cords = frac_line(&intersection);
+            //             break;
+            //         }
+            //         None => {
+            //             near_cords =
+            //                 line_near_points(&screen.xy_line, &line_p1_p2, POINT_SIZE * 2.);
+            //         }
+            //         _ => unreachable!(),
+            //     }
+            //     if !near_cords.is_empty() {
+            //         break;
+            //     }
+            //     screen_idx += screens.len() - 1;
+            //     screen_idx %= screens.len();
+            //     if screen_idx == region {
+            //         break;
+            //     }
+            // }
+            let near_cords = vec![];
+            (near_cords, screen_idx)
         }
-        return vec![];
     };
-
-    let px = screens[screen_idx].xy_line.start;
-    let len_ps_px = ps.euclidean_distance(&px);
-    let len_ps_p1 = ps.euclidean_distance(&line_p1_p2.start);
-    let view_h = CIRCLE_R * 2. - len_ps_p1;
-    let screen_pixel_h = p1.z;
-    let Some(addr) = v_to_pixel(len_ps_px - CIRCLE_R) else {
-        return vec![];
-    };
-
-    let Some(pixel) = v_to_pixel(screen_pixel_h) else {
-        return vec![];
-    };
-    vec![PixelZInfo {
-        angle,
-        pixel: h_to_pixel(view_h),
-        screen_pixel: ScreenPixel {
-            idx: screen_idx,
-            addr,
-            pixel,
-        },
-    }]
+    points
+        .into_iter()
+        .filter_map(|ps| {
+            let px = screens[screen_idx].xy_line.start;
+            let len_ps_px = ps.euclidean_distance(&px);
+            let len_ps_p1 = ps.euclidean_distance(&line_p1_p2.start);
+            let view_h = CIRCLE_R * 2. - len_ps_p1;
+            let screen_pixel_h = p1.z;
+            let addr = v_to_pixel(len_ps_px - CIRCLE_R)?;
+            let pixel = v_to_pixel(screen_pixel_h)?;
+            Some(PixelZInfo {
+                angle,
+                pixel: h_to_pixel(view_h),
+                screen_pixel: ScreenPixel {
+                    idx: screen_idx,
+                    addr,
+                    pixel,
+                },
+            })
+        })
+        .collect()
 }
 
 fn cacl_view_point(
@@ -254,6 +318,8 @@ pub struct Codec {
 }
 
 impl Codec {
+    // TODO map screens to image and fill tthe xy_arr
+    pub fn new2(angle_range: std::ops::Range<usize>) {}
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
         let mut xy_arr = PixelXYArr::new();
         for _x in 0..W_PIXELS {

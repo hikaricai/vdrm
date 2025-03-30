@@ -1,12 +1,14 @@
-use geo::{EuclideanDistance, EuclideanLength, LineInterpolatePoint, LineIntersection};
+use geo::{
+    ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint, LineIntersection,
+};
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-// pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
-pub const TOTAL_ANGLES: usize = 360;
+pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+// pub const TOTAL_ANGLES: usize = 360;
 
 type PixelColor = u32;
 type PixelXY = (u32, u32);
@@ -128,7 +130,7 @@ fn h_to_pixel(h: f32) -> u32 {
 }
 
 pub fn angle_to_v(p: u32) -> f32 {
-    ((p * 360 / TOTAL_ANGLES as u32) as f32).to_radians()
+    (p as f32 * 360. / TOTAL_ANGLES as f32).to_radians()
 }
 
 fn frac_line(line: &geo::Line<f32>) -> Vec<geo::Coord<f32>> {
@@ -155,7 +157,6 @@ fn line_near_points(
     rhs: &geo::Line<f32>,
     threshold: f32,
 ) -> Vec<geo::Coord<f32>> {
-    use geo::algorithm::closest_point::ClosestPoint;
     let mut points: Vec<geo::Coord<f32>> = vec![];
     let l: geo::Point<f32> = line.start.into();
     let r: geo::Point<f32> = line.end.into();
@@ -312,6 +313,22 @@ fn cacl_view_point(
     ((p_view.x, p_view.y, p_view.z), (p.x, p.y, p.z))
 }
 
+fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
+    let close_p = match line.closest_point(p) {
+        geo::Closest::Intersection(point) => point,
+        geo::Closest::SinglePoint(point) => point,
+        geo::Closest::Indeterminate => unreachable!(),
+    };
+    close_p.euclidean_distance(p)
+}
+
+fn v3_2_pixel(x: f32, y: f32, z: f32) -> (usize, usize, usize) {
+    let x = v_to_pixel(x).unwrap_or(0) as usize;
+    let y = v_to_pixel(y).unwrap_or(0) as usize;
+    let z = h_to_pixel(z) as usize;
+    (x, y, z)
+}
+
 pub struct Codec {
     xy_arr: PixelXYArr,
     mat_map: BTreeMap<u32, glam::Mat3A>,
@@ -319,7 +336,109 @@ pub struct Codec {
 
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
-    pub fn new2(angle_range: std::ops::Range<usize>) {}
+    pub fn new2(angle_range: std::ops::Range<usize>) -> Self {
+        let mut xy_arr = PixelXYArr::new();
+        for _x in 0..W_PIXELS {
+            let mut line = vec![];
+            line.extend(
+                std::iter::repeat(())
+                    .take(W_PIXELS)
+                    .map(|_| PixelZInfoList::new()),
+            );
+            xy_arr.push(line);
+        }
+        let mut mat_map = BTreeMap::new();
+        let screen_metas: Vec<_> = SCREENS
+            .iter()
+            .map(|screen| {
+                let start = screen.xy_line.start;
+                let end = screen.xy_line.end;
+                let p_o = glam::Vec3A::new(start.x, start.y, -1.);
+                // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
+                // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
+
+                let v_oa = glam::Vec3A::new(0., 0., POINT_SIZE);
+                let v_ob = geo::Line::new(start, end);
+                let v_ob = v_ob
+                    .line_interpolate_point(POINT_SIZE / v_ob.euclidean_length())
+                    .unwrap()
+                    - start.into();
+                let v_ob = glam::Vec3A::new(v_ob.x(), v_ob.y(), 0.);
+                log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                (screen, p_o, v_oa, v_ob)
+            })
+            .collect();
+        for angle in 0..TOTAL_ANGLES {
+            let angle = angle as u32;
+            let angle_f = angle_to_v(angle);
+            let sin = angle_f.sin();
+            let cos = angle_f.cos();
+            let sin2 = sin * sin;
+            let cos2 = cos * cos;
+            let sin_cos = sin * cos;
+            let mat = glam::Mat3A::from_cols(
+                glam::Vec3A::new(sin2, -sin_cos, -cos),
+                glam::Vec3A::new(-sin_cos, cos2, -sin),
+                glam::Vec3A::new(-cos, -sin, 0.),
+            );
+            mat_map.insert(angle, mat);
+
+            let center = glam::Vec3A::new(0., 0., -1.5);
+            let center = mat * center;
+            let center_xy = geo::Point::new(center.x, center.y);
+
+            for (screen_idx, (screen, p_o, v_oa, v_ob)) in
+                screen_metas.clone().into_iter().enumerate()
+            {
+                let closest_len = closest_len(&screen.xy_line, &center_xy);
+                // log::info!("angle {angle} closest_len {closest_len}");
+                if closest_len > 2f32.sqrt() {
+                    continue;
+                }
+
+                let p_o = mat * p_o;
+                let v_oa = mat * v_oa;
+                let v_ob = mat * v_ob;
+                if angle == 100 {
+                    log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                }
+
+                for i in 0..W_PIXELS {
+                    for j in 0..W_PIXELS {
+                        let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
+                        if p.x.abs() > (1. + POINT_SIZE) || p.y.abs() > (1. + POINT_SIZE) {
+                            continue;
+                        }
+                        let z = -p.z - 1.0;
+                        if z < (0. - POINT_SIZE) || z > (1. + POINT_SIZE) {
+                            continue;
+                        }
+                        if angle == 100 {
+                            log::info!("i {i} j {j} p {p}");
+                        }
+
+                        let (x, y, z) = v3_2_pixel(p.x, p.y, z);
+                        let z_point = PixelZInfo {
+                            angle,
+                            pixel: (W_PIXELS / 2 - 1 - z) as u32,
+                            screen_pixel: ScreenPixel {
+                                idx: screen_idx,
+                                addr: j as u32,
+                                pixel: i as u32,
+                            },
+                        };
+                        xy_arr[x][y].push(z_point);
+                    }
+                }
+            }
+        }
+        for line in xy_arr.iter_mut() {
+            for colom in line.iter_mut() {
+                colom.sort_by_key(|v| v.pixel);
+            }
+        }
+        Self { xy_arr, mat_map }
+    }
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
         let mut xy_arr = PixelXYArr::new();
         for _x in 0..W_PIXELS {

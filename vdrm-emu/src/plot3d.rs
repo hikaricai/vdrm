@@ -93,7 +93,7 @@ struct Ctx {
 
 impl Ctx {
     fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let codec = vdrm_alg::Codec::new(angle_range.clone());
+        let codec = vdrm_alg::Codec::new2(angle_range.clone());
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()

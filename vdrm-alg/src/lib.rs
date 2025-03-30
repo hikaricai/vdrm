@@ -7,7 +7,7 @@ pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+pub const TOTAL_ANGLES: usize = W_PIXELS * 1 * 314 / 100;
 // pub const TOTAL_ANGLES: usize = 360;
 
 type PixelColor = u32;
@@ -278,13 +278,55 @@ impl Codec {
                 }
             }
         }
+        // TODO borrow value from other coloums
+        // not good
+
         // TODO no clone
-        let xy_arr_cl = xy_arr.clone();
-        for (x, y_arr) in xy_arr.iter_mut().enumerate() {
-            for (y, z_arr) in y_arr.iter_mut().enumerate() {
-                // TODO borrow value from other coloums
-            }
-        }
+        // let xy_arr_cl = xy_arr.clone();
+        // let borrow = |x: usize, y: usize, z: usize, z_info: &mut Option<PixelZInfo>| match xy_arr_cl
+        //     .get(x)
+        //     .and_then(|v| v.get(y))
+        //     .and_then(|v| v[z])
+        //     .as_ref()
+        // {
+        //     Some(v) => {
+        //         if v.is_borrowed {
+        //             return false;
+        //         }
+        //         let mut v = v.clone();
+        //         v.is_borrowed = true;
+        //         *z_info = Some(v);
+        //         return true;
+        //     }
+        //     None => return false,
+        // };
+
+        // for (x, y_arr) in xy_arr.iter_mut().enumerate() {
+        //     for (y, z_arr) in y_arr.iter_mut().enumerate() {
+        //         for (z, z_info) in z_arr.iter_mut().enumerate() {
+        //             if z_info.is_some() {
+        //                 continue;
+        //             }
+
+        //             if borrow(x + 1, y, z, z_info) {
+        //                 continue;
+        //             }
+        //             if borrow(x, y + 1, z, z_info) {
+        //                 continue;
+        //             }
+        //             if x > 1 {
+        //                 if borrow(x - 1, y, z, z_info) {
+        //                     continue;
+        //                 }
+        //             }
+        //             if y > 1 {
+        //                 if borrow(x, y - 1, z, z_info) {
+        //                     continue;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         Self { xy_arr, mat_map }
     }
 

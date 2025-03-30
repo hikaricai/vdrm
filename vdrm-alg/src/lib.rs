@@ -58,9 +58,11 @@ struct ScreenPixel {
     pixel: u32,
 }
 
+#[derive(Clone, Copy)]
 struct PixelZInfo {
     angle: u32,
     pixel: u32,
+    is_borrowed: bool,
     screen_pixel: ScreenPixel,
 }
 
@@ -73,8 +75,7 @@ pub struct ScreenLine {
 
 pub type AngleMap = BTreeMap<u32, Vec<ScreenLine>>;
 
-type PixelXYMap = BTreeMap<PixelXY, Vec<PixelZInfo>>;
-type PixelZInfoList = Vec<PixelZInfo>;
+type PixelZInfoList = [Option<PixelZInfo>; H_PIXELS];
 type PixelXYArr = Vec<Vec<PixelZInfoList>>;
 
 #[derive(Copy, Clone)]
@@ -120,177 +121,33 @@ fn v_to_pixel(v: f32) -> Option<u32> {
 }
 
 fn pixel_to_h(p: u32) -> f32 {
-    let point_size: f32 = CIRCLE_R / H_PIXELS as f32;
-    (p as f32) * point_size + 0.5 * point_size
+    (p as f32) * POINT_SIZE
 }
 
-fn h_to_pixel(h: f32) -> u32 {
-    let point_size: f32 = CIRCLE_R / H_PIXELS as f32;
-    (h / point_size - 0.5) as u32
+fn h_to_pixel(h: f32) -> Option<u32> {
+    let point_size: f32 = POINT_SIZE;
+    if h < 0. {
+        return None;
+    }
+    let mut p = (h / point_size) as u32;
+    if p > H_PIXELS as u32 {
+        return None;
+    }
+    if p == H_PIXELS as u32 {
+        p -= 1;
+    }
+    Some(p)
+}
+
+fn v3_2_pixel(x: f32, y: f32, z: f32) -> Option<(u32, u32, u32)> {
+    let x = v_to_pixel(x)?;
+    let y = v_to_pixel(y)?;
+    let z = h_to_pixel(z)?;
+    Some((x, y, z))
 }
 
 pub fn angle_to_v(p: u32) -> f32 {
     (p as f32 * 360. / TOTAL_ANGLES as f32).to_radians()
-}
-
-fn frac_line(line: &geo::Line<f32>) -> Vec<geo::Coord<f32>> {
-    let point_size: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-    let fraction = point_size / line.euclidean_length();
-    let mut next_fraction = fraction;
-    let mut points = vec![line.start];
-    loop {
-        if next_fraction > 1. {
-            break;
-        }
-        let Some(p) = line.line_interpolate_point(next_fraction) else {
-            break;
-        };
-        let p: geo::Coord<_> = p.into();
-        points.push(p);
-        next_fraction += fraction;
-    }
-    points
-}
-
-fn line_near_points(
-    line: &geo::Line<f32>,
-    rhs: &geo::Line<f32>,
-    threshold: f32,
-) -> Vec<geo::Coord<f32>> {
-    let mut points: Vec<geo::Coord<f32>> = vec![];
-    let l: geo::Point<f32> = line.start.into();
-    let r: geo::Point<f32> = line.end.into();
-
-    let get_close_len = |p: &geo::Point<f32>| {
-        let close_p = match rhs.closest_point(&p) {
-            geo::Closest::Intersection(point) => point,
-            geo::Closest::SinglePoint(point) => point,
-            geo::Closest::Indeterminate => unreachable!(),
-        };
-        close_p.euclidean_distance(p)
-    };
-
-    let l_len = get_close_len(&l);
-    let r_len = get_close_len(&r);
-
-    let point_size: f32 = POINT_SIZE;
-    let fraction = point_size / line.euclidean_length();
-    let mut v = line.line_interpolate_point(fraction).unwrap();
-
-    let (mut iter_point, end_point, mut last_len) = if l_len <= r_len {
-        (l, r, l_len)
-    } else {
-        v = -v;
-        (r, l, r_len)
-    };
-    if last_len <= threshold {
-        points.push(iter_point.into());
-    }
-    loop {
-        iter_point += v;
-        let len = get_close_len(&iter_point);
-        if len <= threshold {
-            points.push(iter_point.into());
-        } else if len >= last_len {
-            break;
-        }
-        last_len = len;
-
-        // iter end
-        if (end_point - iter_point).dot(v) < 0. {
-            break;
-        }
-    }
-    points
-}
-
-fn cacl_z_pixel(
-    screens: &[Screen],
-    region: usize,
-    mat: glam::Mat3A,
-    angle: u32,
-    x: u32,
-    y: u32,
-) -> Vec<PixelZInfo> {
-    let x = pixel_to_v(x);
-    let y = pixel_to_v(y);
-    let p1_view = glam::Vec3A::new(x, y, 0.);
-    let p1 = mat * p1_view;
-    if p1.z < -CIRCLE_R || p1.z > CIRCLE_R {
-        return vec![];
-    }
-    let p2_view = glam::Vec3A::new(x, y, -3. * CIRCLE_R);
-    let p2 = mat * p2_view;
-
-    let line_p1_p2 = geo::Line::new((p1.x, p1.y), (p2.x, p2.y));
-    let mut intersection_info = None;
-    let mut screen_idx = region;
-    loop {
-        let screen = &screens[screen_idx];
-        if let Some(LineIntersection::SinglePoint { intersection, .. }) =
-            geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2)
-        {
-            intersection_info = Some((intersection, screen_idx));
-            break;
-        }
-        screen_idx += screens.len() - 1;
-        screen_idx %= screens.len();
-        if screen_idx == region {
-            break;
-        }
-    }
-    let (points, screen_idx) = match intersection_info {
-        Some((p, screen_idx)) => (vec![p], screen_idx),
-        None => {
-            // let mut screen_idx = region;
-            // let mut near_cords: Vec<geo::Coord<f32>>;
-            // loop {
-            //     let screen = &screens[screen_idx];
-            //     match geo::line_intersection::line_intersection(screen.xy_line, line_p1_p2) {
-            //         Some(LineIntersection::Collinear { intersection }) => {
-            //             near_cords = frac_line(&intersection);
-            //             break;
-            //         }
-            //         None => {
-            //             near_cords =
-            //                 line_near_points(&screen.xy_line, &line_p1_p2, POINT_SIZE * 2.);
-            //         }
-            //         _ => unreachable!(),
-            //     }
-            //     if !near_cords.is_empty() {
-            //         break;
-            //     }
-            //     screen_idx += screens.len() - 1;
-            //     screen_idx %= screens.len();
-            //     if screen_idx == region {
-            //         break;
-            //     }
-            // }
-            let near_cords = vec![];
-            (near_cords, screen_idx)
-        }
-    };
-    points
-        .into_iter()
-        .filter_map(|ps| {
-            let px = screens[screen_idx].xy_line.start;
-            let len_ps_px = ps.euclidean_distance(&px);
-            let len_ps_p1 = ps.euclidean_distance(&line_p1_p2.start);
-            let view_h = CIRCLE_R * 2. - len_ps_p1;
-            let screen_pixel_h = p1.z;
-            let addr = v_to_pixel(len_ps_px - CIRCLE_R)?;
-            let pixel = v_to_pixel(screen_pixel_h)?;
-            Some(PixelZInfo {
-                angle,
-                pixel: h_to_pixel(view_h),
-                screen_pixel: ScreenPixel {
-                    idx: screen_idx,
-                    addr,
-                    pixel,
-                },
-            })
-        })
-        .collect()
 }
 
 fn cacl_view_point(
@@ -322,13 +179,6 @@ fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
     close_p.euclidean_distance(p)
 }
 
-fn v3_2_pixel(x: f32, y: f32, z: f32) -> (usize, usize, usize) {
-    let x = v_to_pixel(x).unwrap_or(0) as usize;
-    let y = v_to_pixel(y).unwrap_or(0) as usize;
-    let z = h_to_pixel(z) as usize;
-    (x, y, z)
-}
-
 pub struct Codec {
     xy_arr: PixelXYArr,
     mat_map: BTreeMap<u32, glam::Mat3A>,
@@ -336,14 +186,14 @@ pub struct Codec {
 
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
-    pub fn new2(angle_range: std::ops::Range<usize>) -> Self {
+    pub fn new(angle_range: std::ops::Range<usize>) -> Self {
         let mut xy_arr = PixelXYArr::new();
         for _x in 0..W_PIXELS {
             let mut line = vec![];
             line.extend(
                 std::iter::repeat(())
                     .take(W_PIXELS)
-                    .map(|_| PixelZInfoList::new()),
+                    .map(|_| [None; H_PIXELS]),
             );
             xy_arr.push(line);
         }
@@ -406,77 +256,33 @@ impl Codec {
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
-                        if p.x.abs() > (1. + POINT_SIZE) || p.y.abs() > (1. + POINT_SIZE) {
-                            continue;
-                        }
-                        let z = -p.z - 1.0;
-                        if z < (0. - POINT_SIZE) || z > (1. + POINT_SIZE) {
-                            continue;
-                        }
                         if angle == 100 {
                             log::info!("i {i} j {j} p {p}");
                         }
-
-                        let (x, y, z) = v3_2_pixel(p.x, p.y, z);
+                        let z = -p.z - 1.0;
+                        let Some((x, y, z)) = v3_2_pixel(p.x, p.y, z) else {
+                            continue;
+                        };
                         let z_point = PixelZInfo {
                             angle,
-                            pixel: (W_PIXELS / 2 - 1 - z) as u32,
+                            pixel: z,
+                            is_borrowed: false,
                             screen_pixel: ScreenPixel {
                                 idx: screen_idx,
                                 addr: j as u32,
                                 pixel: i as u32,
                             },
                         };
-                        xy_arr[x][y].push(z_point);
+                        xy_arr[x as usize][y as usize][z as usize] = Some(z_point);
                     }
                 }
             }
         }
-        for line in xy_arr.iter_mut() {
-            for colom in line.iter_mut() {
-                colom.sort_by_key(|v| v.pixel);
-            }
-        }
-        Self { xy_arr, mat_map }
-    }
-    pub fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let mut xy_arr = PixelXYArr::new();
-        for _x in 0..W_PIXELS {
-            let mut line = vec![];
-            line.extend(
-                std::iter::repeat(())
-                    .take(W_PIXELS)
-                    .map(|_| PixelZInfoList::new()),
-            );
-            xy_arr.push(line);
-        }
-        let mut mat_map = BTreeMap::new();
-        for angle in angle_range {
-            let angle = angle as u32;
-            let angle_f = angle_to_v(angle);
-            let sin = angle_f.sin();
-            let cos = angle_f.cos();
-            let sin2 = sin * sin;
-            let cos2 = cos * cos;
-            let sin_cos = sin * cos;
-            let mat = glam::Mat3A::from_cols(
-                glam::Vec3A::new(sin2, -sin_cos, -cos),
-                glam::Vec3A::new(-sin_cos, cos2, -sin),
-                glam::Vec3A::new(-cos, -sin, 0.),
-            );
-            mat_map.insert(angle, mat);
-            for x in 0..W_PIXELS {
-                let region =
-                    x / ((W_PIXELS + SCREENS.len() - W_PIXELS % SCREENS.len()) / SCREENS.len());
-                for y in 0..W_PIXELS {
-                    let points = cacl_z_pixel(&*SCREENS, region, mat, angle, x as u32, y as u32);
-                    xy_arr[x][y].extend(points);
-                }
-            }
-        }
-        for line in xy_arr.iter_mut() {
-            for colom in line.iter_mut() {
-                colom.sort_by_key(|v| v.pixel);
+        // TODO no clone
+        let xy_arr_cl = xy_arr.clone();
+        for (x, y_arr) in xy_arr.iter_mut().enumerate() {
+            for (y, z_arr) in y_arr.iter_mut().enumerate() {
+                // TODO borrow value from other coloums
             }
         }
         Self { xy_arr, mat_map }
@@ -487,32 +293,9 @@ impl Codec {
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
             let z_info_list = &self.xy_arr[x as usize][y as usize];
-            if z_info_list.is_empty() {
+            let Some(z_info) = z_info_list.get(z as usize).and_then(|v| *v) else {
                 continue;
-            }
-            let z_info_idx = match z_info_list.binary_search_by_key(&z, |v| v.pixel) {
-                Ok(idx) => idx,
-                Err(idx) => {
-                    if idx == 0 {
-                        idx
-                    } else if idx >= z_info_list.len() {
-                        idx - 1
-                    } else {
-                        let idx_l = idx - 1;
-                        let l = z_info_list.get(idx_l).unwrap();
-                        let r = z_info_list.get(idx).unwrap();
-                        // let deta_l = z - l.pixel;
-                        // let deta_r = r.pixel - z;
-                        // if deta_l < deta_r
-                        if z * 2 < l.pixel + r.pixel {
-                            idx_l
-                        } else {
-                            idx
-                        }
-                    }
-                }
             };
-            let z_info = z_info_list.get(z_info_idx).or(z_info_list.last()).unwrap();
             let entry = angle_map.entry(z_info.angle).or_default();
             let addr = ScreenLineAddr {
                 screen_idx: z_info.screen_pixel.idx,

@@ -14,8 +14,8 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
         for y in 0..vdrm_alg::W_PIXELS as u32 {
             let x_i32 = x as i32 - r;
             let y_i32 = y as i32 - r;
-            let h = r - (x_i32.abs() + y_i32.abs());
-            if h < 0 {
+            let h = x_i32.abs() + y_i32.abs();
+            if h >= r {
                 continue;
             }
             let z = h.abs() as u32;
@@ -93,11 +93,11 @@ struct Ctx {
 
 impl Ctx {
     fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let codec = vdrm_alg::Codec::new2(angle_range.clone());
+        let codec = vdrm_alg::Codec::new(angle_range.clone());
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y, z - 2.))
+            .map(|(x, y, z)| (x, y, -z - 1.))
             .collect();
         let angle_map = codec.encode(&pixel_surface, 0);
         let (mut all_emu_pixels, mut all_led_pixels) = (vec![], vec![]);

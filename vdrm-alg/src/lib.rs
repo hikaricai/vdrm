@@ -7,7 +7,7 @@ pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-pub const TOTAL_ANGLES: usize = W_PIXELS * 1 * 314 / 100;
+pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
 // pub const TOTAL_ANGLES: usize = 360;
 
 type PixelColor = u32;
@@ -58,7 +58,7 @@ struct ScreenPixel {
     pixel: u32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct PixelZInfo {
     angle: u32,
     pixel: u32,
@@ -103,19 +103,22 @@ pub fn pixel_surface_to_float(pixel_surface: &PixelSurface) -> FloatSurface {
 }
 
 fn pixel_to_v(p: u32) -> f32 {
-    let point_size: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
+    let point_size: f32 = POINT_SIZE;
     p as f32 * point_size + 0.5 * point_size - CIRCLE_R
 }
 
 fn v_to_pixel(v: f32) -> Option<u32> {
-    let point_size: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
+    let point_size: f32 = POINT_SIZE;
     let v = (v + CIRCLE_R) / point_size - 0.5;
-    if v < 0. {
+    if v < -POINT_SIZE {
         return None;
     }
-    let v = v as u32;
-    if v >= W_PIXELS as u32 {
+    let mut v = v as u32;
+    if v > W_PIXELS as u32 {
         return None;
+    }
+    if v == W_PIXELS as u32 {
+        v -= 1;
     }
     Some(v)
 }
@@ -124,9 +127,11 @@ fn pixel_to_h(p: u32) -> f32 {
     (p as f32) * POINT_SIZE
 }
 
-fn h_to_pixel(h: f32) -> Option<u32> {
+fn h_to_pixel(mut h: f32) -> Option<u32> {
     let point_size: f32 = POINT_SIZE;
-    if h < 0. {
+    // fix z offset
+    h += POINT_SIZE;
+    if h < -POINT_SIZE {
         return None;
     }
     let mut p = (h / point_size) as u32;
@@ -143,6 +148,10 @@ fn v3_2_pixel(x: f32, y: f32, z: f32) -> Option<(u32, u32, u32)> {
     let x = v_to_pixel(x)?;
     let y = v_to_pixel(y)?;
     let z = h_to_pixel(z)?;
+    // fix offset
+    // if z + 1 < H_PIXELS as u32 {
+    //     z += 1;
+    // }
     Some((x, y, z))
 }
 
@@ -256,13 +265,16 @@ impl Codec {
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
-                        if angle == 100 {
-                            log::info!("i {i} j {j} p {p}");
+                        if angle >= 99 && angle <= 101 {
+                            // log::info!("i {i} j {j} p {p}");
                         }
                         let z = -p.z - 1.0;
                         let Some((x, y, z)) = v3_2_pixel(p.x, p.y, z) else {
                             continue;
                         };
+                        if angle >= 99 && angle <= 101 {
+                            // log::info!("x {x} y {y} z {z}");
+                        }
                         let z_point = PixelZInfo {
                             angle,
                             pixel: z,
@@ -335,6 +347,9 @@ impl Codec {
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
             let z_info_list = &self.xy_arr[x as usize][y as usize];
+            // fix z offset
+            // TODO find the reason for offset
+            // let z = if z > 1 { z - 1 } else { z };
             let Some(z_info) = z_info_list.get(z as usize).and_then(|v| *v) else {
                 continue;
             };

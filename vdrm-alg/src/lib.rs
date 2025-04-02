@@ -3,8 +3,8 @@ use geo::{
 };
 use std::collections::BTreeMap;
 
-pub const W_PIXELS: usize = 64;
-pub const H_PIXELS: usize = 32;
+pub const W_PIXELS: usize = 192;
+pub const H_PIXELS: usize = 96;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
 pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;

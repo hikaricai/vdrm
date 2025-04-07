@@ -99,7 +99,7 @@ impl Ctx {
             .into_iter()
             .map(|(x, y, z)| (x, y, -z - 1.))
             .collect();
-        let angle_map = codec.encode(&pixel_surface, 0);
+        let angle_map = codec.encode(&pixel_surface, 0, true);
         let (mut all_emu_pixels, mut all_led_pixels) = (vec![], vec![]);
         let angle_ctx_map = (0..vdrm_alg::TOTAL_ANGLES as u32)
             .map(|angle| {

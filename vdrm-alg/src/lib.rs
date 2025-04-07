@@ -1,6 +1,4 @@
-use geo::{
-    ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint, LineIntersection,
-};
+use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 192;
@@ -43,7 +41,8 @@ lazy_static::lazy_static! {
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
         let a:(f32, f32) = (0., 1.);
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
-        let b:(f32, f32) = (0., 1. + 2.);
+        let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
+        // let b:(f32, f32) = (0., 1. + 2.);
         [Screen::new([a, b])]
     };
 }

@@ -18,7 +18,7 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
             if h >= r {
                 continue;
             }
-            let z = h.abs() as u32;
+            let z = (r - 1 - h) as u32;
             let color = match (x_i32 >= 0, y_i32 >= 0) {
                 (true, true) => 0b111,
                 (false, true) => 0b001,

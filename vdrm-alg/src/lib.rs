@@ -342,7 +342,12 @@ impl Codec {
         Self { xy_arr, mat_map }
     }
 
-    pub fn encode(&self, pixel_surface: &PixelSurface, pixel_offset: i32) -> AngleMap {
+    pub fn encode(
+        &self,
+        pixel_surface: &PixelSurface,
+        pixel_offset: i32,
+        optimze_speed_for_mbi5264: bool,
+    ) -> AngleMap {
         let mut angle_map: BTreeMap<u32, BTreeMap<ScreenLineAddr, ScreenLinePixels>> =
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
@@ -368,32 +373,98 @@ impl Codec {
         }
         angle_map
             .into_iter()
-            .map(|(k, v)| {
-                (
-                    k,
-                    v.into_iter()
-                        .map(|(k, mut v)| {
-                            if pixel_offset > 0 {
-                                let offset = pixel_offset as usize;
-                                v.pixels.rotate_right(offset);
-                                v.pixels.iter_mut().take(offset).for_each(|v| {
-                                    v.take();
-                                });
-                            } else if pixel_offset < 0 {
-                                let offset = (-pixel_offset) as usize;
-                                v.pixels.rotate_left(offset);
-                                v.pixels.iter_mut().rev().take(offset).for_each(|v| {
-                                    v.take();
-                                });
+            .map(|(k, mut addr_map)| {
+                let mut pixels_info: [Option<([u8; 4], ScreenLineAddr)>; W_PIXELS] =
+                    [None; W_PIXELS];
+                for (addr, line) in addr_map.iter_mut() {
+                    for (color, pixel_info) in line.pixels.iter_mut().zip(&mut pixels_info) {
+                        let Some(rgbh) = color.as_ref() else {
+                            continue;
+                        };
+                        let [r, g, b, _a] = rgbh.to_ne_bytes();
+                        match pixel_info {
+                            Some(_rgbh) => {
+                                *color = None;
                             }
-                            ScreenLine {
-                                screen_idx: k.screen_idx,
-                                addr: k.addr,
-                                pixels: v.pixels,
+                            None => {
+                                *pixel_info = Some(([r, g, b, addr.addr as u8], *addr));
                             }
-                        })
-                        .collect::<Vec<_>>(),
-                )
+                        }
+                    }
+                }
+                if optimze_speed_for_mbi5264 {
+                    for i in 0..64usize {
+                        let region0 = i;
+                        let region1 = i + 64;
+                        let region2 = i + 128;
+                        let regions = [region1, region0, region2];
+                        let mut non_empty_h: Option<u8> = None;
+                        for region in regions {
+                            let Some(pixel_info) = pixels_info[region] else {
+                                continue;
+                            };
+                            if pixel_info.0[..3] == [0; 3] {
+                                continue;
+                            }
+                            non_empty_h = Some(pixel_info.0[3]);
+                            break;
+                        }
+                        let Some(non_empty_h) = non_empty_h else {
+                            continue;
+                        };
+                        let non_empty_h_mod = non_empty_h % 16;
+                        for region in regions {
+                            let Some((rgbh, line_addr)) = &pixels_info[region] else {
+                                continue;
+                            };
+                            let h = rgbh[3];
+                            let h_mod = h % 16;
+                            if h_mod == non_empty_h_mod {
+                                continue;
+                            }
+                            let mut deta = non_empty_h_mod as i16 - h_mod as i16;
+                            if deta.abs() > 8 {
+                                let try_deta = if deta > 0 { deta - 16 } else { deta + 16 };
+                                let try_h = h as i16 + try_deta as i16;
+                                if try_h >= 0 && try_h <= 143 {
+                                    deta = try_deta;
+                                }
+                            }
+                            let new_h = (h as i16 + deta) as u8;
+                            let line_pixels = addr_map.get_mut(&line_addr).unwrap();
+                            let pixel = line_pixels.pixels[region].take().unwrap();
+                            let mut line_addr = *line_addr;
+                            line_addr.addr = new_h as u32;
+                            let entry = addr_map.entry(line_addr).or_default();
+                            entry.pixels[region] = Some(pixel);
+                        }
+                    }
+                }
+
+                let lines = addr_map
+                    .into_iter()
+                    .map(|(k, mut v)| {
+                        if pixel_offset > 0 {
+                            let offset = pixel_offset as usize;
+                            v.pixels.rotate_right(offset);
+                            v.pixels.iter_mut().take(offset).for_each(|v| {
+                                v.take();
+                            });
+                        } else if pixel_offset < 0 {
+                            let offset = (-pixel_offset) as usize;
+                            v.pixels.rotate_left(offset);
+                            v.pixels.iter_mut().rev().take(offset).for_each(|v| {
+                                v.take();
+                            });
+                        }
+                        ScreenLine {
+                            screen_idx: k.screen_idx,
+                            addr: k.addr,
+                            pixels: v.pixels,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (k, lines)
             })
             .collect()
     }

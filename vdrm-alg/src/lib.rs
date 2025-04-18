@@ -30,6 +30,8 @@ impl Default for ScreenLinePixels {
     }
 }
 
+pub const SCREEN_OFFSET: f32 = 1.414f32;
+
 lazy_static::lazy_static! {
     static ref SCREENS:[Screen; 1]  = {
         // let u:(f32, f32) = (-2., 0.);
@@ -39,10 +41,10 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let a:(f32, f32) = (0., 1.);
+        let a:(f32, f32) = (0., 1. + SCREEN_OFFSET);
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
-        let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
-        // let b:(f32, f32) = (0., 1. + 2.);
+        // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
+        let b:(f32, f32) = (0., 1. + 2. + SCREEN_OFFSET);
         [Screen::new([a, b])]
     };
 }
@@ -172,7 +174,7 @@ fn cacl_view_point(
         .line_interpolate_point(fraction)
         .unwrap()
         .into();
-    let z = pixel_to_v(pixel_z);
+    let z = pixel_to_v(pixel_z) - SCREEN_OFFSET;
     let p = glam::Vec3A::new(xy.x, xy.y, z);
     let p_view = mat * p;
     ((p_view.x, p_view.y, p_view.z), (p.x, p.y, p.z))
@@ -211,7 +213,7 @@ impl Codec {
             .map(|screen| {
                 let start = screen.xy_line.start;
                 let end = screen.xy_line.end;
-                let p_o = glam::Vec3A::new(start.x, start.y, -1.);
+                let p_o = glam::Vec3A::new(start.x, start.y, -1. - SCREEN_OFFSET);
                 // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
                 // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
 
@@ -241,7 +243,7 @@ impl Codec {
             );
             mat_map.insert(angle, mat);
 
-            let center = glam::Vec3A::new(0., 0., -1.5);
+            let center = glam::Vec3A::new(0., 0. + SCREEN_OFFSET, -1.5 - SCREEN_OFFSET);
             let center = mat * center;
             let center_xy = geo::Point::new(center.x, center.y);
 
@@ -267,8 +269,10 @@ impl Codec {
                         if angle >= 99 && angle <= 101 {
                             // log::info!("i {i} j {j} p {p}");
                         }
-                        let z = -p.z - 1.0;
-                        let Some((x, y, z)) = v3_2_pixel(p.x, p.y, z) else {
+                        let pz = -p.z - 1.0 - SCREEN_OFFSET;
+                        let px = p.x;
+                        let py = p.y - SCREEN_OFFSET;
+                        let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };
                         if angle >= 99 && angle <= 101 {

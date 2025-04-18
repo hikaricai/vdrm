@@ -18,7 +18,7 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
             if h >= r {
                 continue;
             }
-            let z = (r - 1 - h) as u32;
+            let z = h as u32;
             let color = match (x_i32 >= 0, y_i32 >= 0) {
                 (true, true) => 0b111,
                 (false, true) => 0b001,
@@ -38,10 +38,26 @@ impl Mirror {
         let angle = vdrm_alg::angle_to_v(angle);
         let mat = glam::Mat2::from_angle(angle);
         let points = [
-            (len, len, -len),
-            (-len, len, len),
-            (-len, -len, len),
-            (len, -len, -len),
+            (
+                len + vdrm_alg::SCREEN_OFFSET,
+                len,
+                -len - vdrm_alg::SCREEN_OFFSET,
+            ),
+            (
+                -len + vdrm_alg::SCREEN_OFFSET,
+                len,
+                len - vdrm_alg::SCREEN_OFFSET,
+            ),
+            (
+                -len + vdrm_alg::SCREEN_OFFSET,
+                -len,
+                len - vdrm_alg::SCREEN_OFFSET,
+            ),
+            (
+                len + vdrm_alg::SCREEN_OFFSET,
+                -len,
+                -len - vdrm_alg::SCREEN_OFFSET,
+            ),
         ];
         let points = points.map(|(x, y, z)| {
             let p = mat * glam::Vec2::new(x, y);
@@ -63,10 +79,10 @@ impl Screen {
         let xy_line = vdrm_alg::screens()[idx].xy_line;
         let (a, b) = xy_line.points();
         let points = [
-            (a.x(), a.y(), -1.),
-            (a.x(), a.y(), 1.),
-            (b.x(), b.y(), 1.),
-            (b.x(), b.y(), -1.),
+            (a.x(), a.y(), -1. - vdrm_alg::SCREEN_OFFSET),
+            (a.x(), a.y(), 1. - vdrm_alg::SCREEN_OFFSET),
+            (b.x(), b.y(), 1. - vdrm_alg::SCREEN_OFFSET),
+            (b.x(), b.y(), -1. - vdrm_alg::SCREEN_OFFSET),
         ];
         Self { points }
     }
@@ -97,7 +113,13 @@ impl Ctx {
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y, -z - 1.))
+            .map(|(x, y, z)| {
+                (
+                    x,
+                    y + vdrm_alg::SCREEN_OFFSET,
+                    -z - 1. - vdrm_alg::SCREEN_OFFSET,
+                )
+            })
             .collect();
         let angle_map = codec.encode(&pixel_surface, 0, true);
         let (mut all_emu_pixels, mut all_led_pixels) = (vec![], vec![]);
@@ -160,14 +182,14 @@ pub fn draw(
         .into_drawing_area();
     area.fill(&WHITE)?;
 
-    let axis_len = 1.5_f32;
+    let axis_len = 1.5f32;
     let x_axis = (-axis_len..axis_len).step(0.1);
-    let y_axis = (-axis_len..axis_len).step(0.1);
+    let y_axis = (0f32..axis_len * 2.).step(0.1);
 
     let mut chart = ChartBuilder::on(&area).build_cartesian_3d(
         x_axis.clone(),
         y_axis.clone(),
-        -axis_len..axis_len,
+        -axis_len * 2. ..0.,
     )?;
     chart.with_projection(|_pb| {
         let (x, y) = area.get_pixel_range();

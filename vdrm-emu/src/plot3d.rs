@@ -18,7 +18,8 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
             if h >= r {
                 continue;
             }
-            let z = h as u32;
+            let z = (r - 1 - h) as u32;
+            // let z = h as u32;
             let color = match (x_i32 >= 0, y_i32 >= 0) {
                 (true, true) => 0b111,
                 (false, true) => 0b001,
@@ -121,7 +122,8 @@ impl Ctx {
                 )
             })
             .collect();
-        let angle_map = codec.encode(&pixel_surface, 0, true);
+        let optimze_speed_for_mbi5264 = false;
+        let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);
         let (mut all_emu_pixels, mut all_led_pixels) = (vec![], vec![]);
         let angle_ctx_map = (0..vdrm_alg::TOTAL_ANGLES as u32)
             .map(|angle| {
@@ -222,10 +224,10 @@ pub fn draw(
     chart
         .draw_series(
             [
-                ("x", (axis_len, -axis_len, -axis_len), &RED),
-                ("y", (-axis_len, axis_len, -axis_len), &GREEN),
-                ("z", (-axis_len, -axis_len, axis_len), &BLUE),
-                ("o'", (-axis_len, -axis_len, -axis_len), &CYAN),
+                ("x", (axis_len, 0., -axis_len * 2.), &RED),
+                ("y", (-axis_len, axis_len * 2., -axis_len * 2.), &GREEN),
+                ("z", (-axis_len, 0., 0.), &BLUE),
+                ("o'", (-axis_len, 0., -axis_len * 2.), &CYAN),
             ]
             .map(|(label, position, color)| {
                 Text::new(

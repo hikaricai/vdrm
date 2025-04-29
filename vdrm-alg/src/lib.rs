@@ -42,9 +42,10 @@ lazy_static::lazy_static! {
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
         let a:(f32, f32) = (0., 1. + SCREEN_OFFSET);
+        let rad = std::f32::consts::PI / 9.;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
         // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
-        let b:(f32, f32) = (0., 1. + 2. + SCREEN_OFFSET);
+        let b:(f32, f32) = (0. - 2. * rad.sin(), 1. + 2. * rad.cos() + SCREEN_OFFSET);
         [Screen::new([a, b])]
     };
 }

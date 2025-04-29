@@ -104,7 +104,7 @@ struct Ctx {
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
-    screens: [Screen; 1],
+    screens: [Screen; 3],
     angle_range: std::ops::Range<usize>,
 }
 
@@ -128,7 +128,7 @@ impl Ctx {
         let angle_ctx_map = (0..vdrm_alg::TOTAL_ANGLES as u32)
             .map(|angle| {
                 let mirror = Mirror::new(1. / 2_f32.sqrt(), angle);
-                let Some(lines) = angle_map.get(&angle) else {
+                let Some(lines_arr) = angle_map.get(&angle) else {
                     return (
                         angle,
                         AngleCtx {
@@ -138,9 +138,15 @@ impl Ctx {
                         },
                     );
                 };
-                let (emu_pixels, led_pixels) = codec.decode(angle, lines);
-                all_emu_pixels.extend(emu_pixels.clone());
-                all_led_pixels.extend(led_pixels.clone());
+                let mut led_pixels = vec![];
+                let mut emu_pixels = vec![];
+                for lines in lines_arr {
+                    let (emu_pixels_dec, led_pixels_dec) = codec.decode(angle, lines);
+                    all_emu_pixels.extend(emu_pixels_dec.clone());
+                    all_led_pixels.extend(led_pixels_dec.clone());
+                    led_pixels.extend(led_pixels_dec);
+                    emu_pixels.extend(emu_pixels_dec);
+                }
                 let angle_ctx = AngleCtx {
                     mirror,
                     led_pixels,
@@ -155,7 +161,7 @@ impl Ctx {
             all_real_pixels,
             all_emu_pixels,
             all_led_pixels,
-            screens: [0].map(|idx| Screen::new(idx)),
+            screens: [0, 1, 2].map(|idx| Screen::new(idx)),
             angle_range,
         }
     }

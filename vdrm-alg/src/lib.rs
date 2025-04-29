@@ -30,10 +30,10 @@ impl Default for ScreenLinePixels {
     }
 }
 
-pub const SCREEN_OFFSET: f32 = 1.414f32;
+pub const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
 
 lazy_static::lazy_static! {
-    static ref SCREENS:[Screen; 1]  = {
+    static ref SCREENS:[Screen; 3]  = {
         // let u:(f32, f32) = (-2., 0.);
         // let v:(f32, f32) = (-1., -1.);
         // let w:(f32, f32) = (1., -1.);
@@ -41,17 +41,27 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let a:(f32, f32) = (0., 1. + SCREEN_OFFSET);
+        let l = 1. + SCREEN_OFFSET;
+        let depth = 2f32;
+        let a:(f32, f32) = (0., l);
         let rad = std::f32::consts::PI / 9.;
+        let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
         // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
-        let b:(f32, f32) = (0. - 2. * rad.sin(), 1. + 2. * rad.cos() + SCREEN_OFFSET);
-        [Screen::new([a, b])]
+        let b:(f32, f32) = (0. - depth* rad.sin(), l + depth * rad.cos());
+
+        let rad = std::f32::consts::FRAC_PI_8;
+        let l1 = l + depth;
+        let c = (-l * rad.sin(), l * rad.cos());
+        let d = (-l1 * rad.sin(), l1 * rad.cos());
+        let e = (l * rad.sin(), l * rad.cos());
+        let f = (l1 * rad.sin(), l1 * rad.cos());
+        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
     };
 }
 
-pub fn screens() -> [Screen; 1] {
-    *SCREENS
+pub fn screens() -> &'static [Screen] {
+    &*SCREENS
 }
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct ScreenPixel {
@@ -75,7 +85,7 @@ pub struct ScreenLine {
     pub pixels: [Option<PixelColor>; W_PIXELS],
 }
 
-pub type AngleMap = BTreeMap<u32, Vec<ScreenLine>>;
+pub type AngleMap = BTreeMap<u32, [Vec<ScreenLine>; 3]>;
 
 type PixelZInfoList = [Option<PixelZInfo>; H_PIXELS];
 type PixelXYArr = Vec<Vec<PixelZInfoList>>;
@@ -191,14 +201,14 @@ fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
 }
 
 pub struct Codec {
-    xy_arr: PixelXYArr,
+    xy_arrs: [PixelXYArr; 3],
     mat_map: BTreeMap<u32, glam::Mat3A>,
 }
 
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let mut xy_arr = PixelXYArr::new();
+        let mut xy_arrs = [PixelXYArr::new(), PixelXYArr::new(), PixelXYArr::new()];
         for _x in 0..W_PIXELS {
             let mut line = vec![];
             line.extend(
@@ -206,7 +216,9 @@ impl Codec {
                     .take(W_PIXELS)
                     .map(|_| [None; H_PIXELS]),
             );
-            xy_arr.push(line);
+            xy_arrs[0].push(line.clone());
+            xy_arrs[1].push(line.clone());
+            xy_arrs[2].push(line);
         }
         let mut mat_map = BTreeMap::new();
         let screen_metas: Vec<_> = SCREENS
@@ -289,7 +301,7 @@ impl Codec {
                                 pixel: i as u32,
                             },
                         };
-                        xy_arr[x as usize][y as usize][z as usize] = Some(z_point);
+                        xy_arrs[screen_idx][x as usize][y as usize][z as usize] = Some(z_point);
                     }
                 }
             }
@@ -343,7 +355,7 @@ impl Codec {
         //         }
         //     }
         // }
-        Self { xy_arr, mat_map }
+        Self { xy_arrs, mat_map }
     }
 
     pub fn encode(
@@ -352,123 +364,40 @@ impl Codec {
         pixel_offset: i32,
         optimze_speed_for_mbi5264: bool,
     ) -> AngleMap {
-        let mut angle_map: BTreeMap<u32, BTreeMap<ScreenLineAddr, ScreenLinePixels>> =
+        let mut angle_map: BTreeMap<u32, [BTreeMap<ScreenLineAddr, ScreenLinePixels>; 3]> =
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
-            let z_info_list = &self.xy_arr[x as usize][y as usize];
-            // fix z offset
-            // TODO find the reason for offset
-            // let z = if z > 1 { z - 1 } else { z };
-            let Some(z_info) = z_info_list.get(z as usize).and_then(|v| *v) else {
-                continue;
-            };
-            let entry = angle_map.entry(z_info.angle).or_default();
-            let addr = ScreenLineAddr {
-                screen_idx: z_info.screen_pixel.idx,
-                addr: z_info.screen_pixel.addr,
-            };
-            let line_pixels = entry.entry(addr).or_default();
-            let pixel_idx = z_info.screen_pixel.pixel as usize;
-            if let Some(c) = line_pixels.pixels.get_mut(pixel_idx) {
-                *c = Some(color);
-            } else {
-                panic!("{x}, {y}, {z}, pixel_idx {pixel_idx}");
+            for screen_idx in 0..3usize {
+                let z_info_list = &self.xy_arrs[screen_idx][x as usize][y as usize];
+                // fix z offset
+                // TODO find the reason for offset
+                // let z = if z > 1 { z - 1 } else { z };
+                let Some(z_info) = z_info_list.get(z as usize).and_then(|v| *v) else {
+                    continue;
+                };
+                let entry = angle_map.entry(z_info.angle).or_default();
+                let addr = ScreenLineAddr {
+                    screen_idx: z_info.screen_pixel.idx,
+                    addr: z_info.screen_pixel.addr,
+                };
+                let line_pixels = entry[screen_idx].entry(addr).or_default();
+                let pixel_idx = z_info.screen_pixel.pixel as usize;
+                if let Some(c) = line_pixels.pixels.get_mut(pixel_idx) {
+                    *c = Some(color);
+                } else {
+                    panic!("{x}, {y}, {z}, pixel_idx {pixel_idx}");
+                }
             }
         }
         angle_map
             .into_iter()
-            .map(|(k, mut addr_map)| {
-                let mut pixels_info: [Option<([u8; 4], ScreenLineAddr)>; W_PIXELS] =
-                    [None; W_PIXELS];
-                for (addr, line) in addr_map.iter_mut() {
-                    for (color, pixel_info) in line.pixels.iter_mut().zip(&mut pixels_info) {
-                        let Some(rgbh) = color.as_ref() else {
-                            continue;
-                        };
-                        let [r, g, b, _a] = rgbh.to_ne_bytes();
-                        match pixel_info {
-                            Some(_rgbh) => {
-                                *color = None;
-                            }
-                            None => {
-                                *pixel_info = Some(([r, g, b, addr.addr as u8], *addr));
-                            }
-                        }
-                    }
-                }
-                if optimze_speed_for_mbi5264 {
-                    for i in 0..64usize {
-                        let region0 = i;
-                        let region1 = i + 64;
-                        let region2 = i + 128;
-                        let regions = [region1, region0, region2];
-                        let mut non_empty_h: Option<u8> = None;
-                        for region in regions {
-                            let Some(pixel_info) = pixels_info[region] else {
-                                continue;
-                            };
-                            if pixel_info.0[..3] == [0; 3] {
-                                continue;
-                            }
-                            non_empty_h = Some(pixel_info.0[3]);
-                            break;
-                        }
-                        let Some(non_empty_h) = non_empty_h else {
-                            continue;
-                        };
-                        let non_empty_h_mod = non_empty_h % 16;
-                        for region in regions {
-                            let Some((rgbh, line_addr)) = &pixels_info[region] else {
-                                continue;
-                            };
-                            let h = rgbh[3];
-                            let h_mod = h % 16;
-                            if h_mod == non_empty_h_mod {
-                                continue;
-                            }
-                            let mut deta = non_empty_h_mod as i16 - h_mod as i16;
-                            if deta.abs() > 8 {
-                                let try_deta = if deta > 0 { deta - 16 } else { deta + 16 };
-                                let try_h = h as i16 + try_deta as i16;
-                                if try_h >= 0 && try_h <= 143 {
-                                    deta = try_deta;
-                                }
-                            }
-                            let new_h = (h as i16 + deta) as u8;
-                            let line_pixels = addr_map.get_mut(&line_addr).unwrap();
-                            let pixel = line_pixels.pixels[region].take().unwrap();
-                            let mut line_addr = *line_addr;
-                            line_addr.addr = new_h as u32;
-                            let entry = addr_map.entry(line_addr).or_default();
-                            entry.pixels[region] = Some(pixel);
-                        }
-                    }
-                }
-
-                let lines = addr_map
-                    .into_iter()
-                    .map(|(k, mut v)| {
-                        if pixel_offset > 0 {
-                            let offset = pixel_offset as usize;
-                            v.pixels.rotate_right(offset);
-                            v.pixels.iter_mut().take(offset).for_each(|v| {
-                                v.take();
-                            });
-                        } else if pixel_offset < 0 {
-                            let offset = (-pixel_offset) as usize;
-                            v.pixels.rotate_left(offset);
-                            v.pixels.iter_mut().rev().take(offset).for_each(|v| {
-                                v.take();
-                            });
-                        }
-                        ScreenLine {
-                            screen_idx: k.screen_idx,
-                            addr: k.addr,
-                            pixels: v.pixels,
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                (k, lines)
+            .map(|(k, addr_maps)| {
+                (
+                    k,
+                    addr_maps.map(|addr_map| {
+                        parse_addr_map(addr_map, pixel_offset, optimze_speed_for_mbi5264)
+                    }),
+                )
             })
             .collect()
     }
@@ -495,11 +424,109 @@ impl Codec {
     pub fn decode_all(&self, angle_map: AngleMap) -> (FloatSurface, FloatSurface) {
         let mut view_surface = FloatSurface::default();
         let mut led_surface = FloatSurface::default();
-        for (angle, lines) in angle_map {
-            let (view, led) = self.decode(angle, lines.as_slice());
-            view_surface.extend(view);
-            led_surface.extend(led);
+        for (angle, lines_arr) in angle_map {
+            for lines in lines_arr {
+                let (view, led) = self.decode(angle, lines.as_slice());
+                view_surface.extend(view);
+                led_surface.extend(led);
+            }
         }
         (view_surface, led_surface)
     }
+}
+
+fn parse_addr_map(
+    mut addr_map: BTreeMap<ScreenLineAddr, ScreenLinePixels>,
+    pixel_offset: i32,
+    optimze_speed_for_mbi5264: bool,
+) -> Vec<ScreenLine> {
+    let mut pixels_info: [Option<([u8; 4], ScreenLineAddr)>; W_PIXELS] = [None; W_PIXELS];
+    for (addr, line) in addr_map.iter_mut() {
+        for (color, pixel_info) in line.pixels.iter_mut().zip(&mut pixels_info) {
+            let Some(rgbh) = color.as_ref() else {
+                continue;
+            };
+            let [r, g, b, _a] = rgbh.to_ne_bytes();
+            match pixel_info {
+                Some(_rgbh) => {
+                    *color = None;
+                }
+                None => {
+                    *pixel_info = Some(([r, g, b, addr.addr as u8], *addr));
+                }
+            }
+        }
+    }
+    if optimze_speed_for_mbi5264 {
+        for i in 0..64usize {
+            let region0 = i;
+            let region1 = i + 64;
+            let region2 = i + 128;
+            let regions = [region1, region0, region2];
+            let mut non_empty_h: Option<u8> = None;
+            for region in regions {
+                let Some(pixel_info) = pixels_info[region] else {
+                    continue;
+                };
+                if pixel_info.0[..3] == [0; 3] {
+                    continue;
+                }
+                non_empty_h = Some(pixel_info.0[3]);
+                break;
+            }
+            let Some(non_empty_h) = non_empty_h else {
+                continue;
+            };
+            let non_empty_h_mod = non_empty_h % 16;
+            for region in regions {
+                let Some((rgbh, line_addr)) = &pixels_info[region] else {
+                    continue;
+                };
+                let h = rgbh[3];
+                let h_mod = h % 16;
+                if h_mod == non_empty_h_mod {
+                    continue;
+                }
+                let mut deta = non_empty_h_mod as i16 - h_mod as i16;
+                if deta.abs() > 8 {
+                    let try_deta = if deta > 0 { deta - 16 } else { deta + 16 };
+                    let try_h = h as i16 + try_deta as i16;
+                    if try_h >= 0 && try_h <= 143 {
+                        deta = try_deta;
+                    }
+                }
+                let new_h = (h as i16 + deta) as u8;
+                let line_pixels = addr_map.get_mut(&line_addr).unwrap();
+                let pixel = line_pixels.pixels[region].take().unwrap();
+                let mut line_addr = *line_addr;
+                line_addr.addr = new_h as u32;
+                let entry = addr_map.entry(line_addr).or_default();
+                entry.pixels[region] = Some(pixel);
+            }
+        }
+    }
+
+    addr_map
+        .into_iter()
+        .map(|(k, mut v)| {
+            if pixel_offset > 0 {
+                let offset = pixel_offset as usize;
+                v.pixels.rotate_right(offset);
+                v.pixels.iter_mut().take(offset).for_each(|v| {
+                    v.take();
+                });
+            } else if pixel_offset < 0 {
+                let offset = (-pixel_offset) as usize;
+                v.pixels.rotate_left(offset);
+                v.pixels.iter_mut().rev().take(offset).for_each(|v| {
+                    v.take();
+                });
+            }
+            ScreenLine {
+                screen_idx: k.screen_idx,
+                addr: k.addr,
+                pixels: v.pixels,
+            }
+        })
+        .collect::<Vec<_>>()
 }

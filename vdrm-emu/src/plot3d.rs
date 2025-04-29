@@ -99,18 +99,23 @@ struct AngleCtx {
     emu_pixels: Vec<(f32, f32, f32)>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+struct CtxParam {
+    angle_range: std::ops::Range<usize>,
+    enb_screens: Vec<usize>,
+}
 struct Ctx {
     angle_ctx_map: BTreeMap<u32, AngleCtx>,
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
     screens: [Screen; 3],
-    angle_range: std::ops::Range<usize>,
+    param: CtxParam,
 }
 
 impl Ctx {
-    fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let codec = vdrm_alg::Codec::new(angle_range.clone());
+    fn new(param: CtxParam) -> Self {
+        let codec = vdrm_alg::Codec::new(param.angle_range.clone());
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
@@ -140,7 +145,10 @@ impl Ctx {
                 };
                 let mut led_pixels = vec![];
                 let mut emu_pixels = vec![];
-                for lines in lines_arr {
+                for (idx, lines) in lines_arr.iter().enumerate() {
+                    if !param.enb_screens.contains(&idx) {
+                        continue;
+                    }
                     let (emu_pixels_dec, led_pixels_dec) = codec.decode(angle, lines);
                     all_emu_pixels.extend(emu_pixels_dec.clone());
                     all_led_pixels.extend(led_pixels_dec.clone());
@@ -162,7 +170,7 @@ impl Ctx {
             all_emu_pixels,
             all_led_pixels,
             screens: [0, 1, 2].map(|idx| Screen::new(idx)),
-            angle_range,
+            param,
         }
     }
 }
@@ -173,6 +181,7 @@ pub fn draw(
     pitch: f64,
     yaw: f64,
     angle_range: std::ops::Range<usize>,
+    enb_screens: Vec<usize>,
 ) -> DrawResult<()> {
     static INIT_LOG: std::sync::Once = std::sync::Once::new();
     INIT_LOG.call_once(|| {
@@ -181,9 +190,13 @@ pub fn draw(
     });
     log::info!("draw");
     let mut guard = CTX.lock().unwrap();
-    let ctx = guard.get_or_insert_with(|| Ctx::new(angle_range.clone()));
-    if ctx.angle_range != angle_range {
-        *ctx = Ctx::new(angle_range);
+    let param = CtxParam{
+        angle_range,
+        enb_screens,
+    };
+    let ctx = guard.get_or_insert_with(|| Ctx::new(param.clone()));
+    if ctx.param != param {
+        *ctx = Ctx::new(param);
     }
     let area = CanvasBackend::with_canvas_object(canvas)
         .unwrap()

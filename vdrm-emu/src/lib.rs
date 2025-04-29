@@ -23,9 +23,10 @@ impl Chart {
         yaw: f64,
         min_angle: usize,
         max_angle: usize,
+        enb_screens: Vec<usize>,
     ) -> Result<(), JsValue> {
         let angle_range = min_angle..max_angle;
-        plot3d::draw(canvas, angle, pitch, yaw, angle_range).map_err(|err| err.to_string())?;
+        plot3d::draw(canvas, angle, pitch, yaw, angle_range, enb_screens).map_err(|err| err.to_string())?;
         Ok(())
     }
 }

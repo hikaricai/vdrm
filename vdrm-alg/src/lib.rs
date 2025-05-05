@@ -45,17 +45,25 @@ lazy_static::lazy_static! {
         let depth = 2f32;
         let a:(f32, f32) = (0., l);
         let rad = std::f32::consts::PI / 9.;
-        let rad = 0f32;
+        //let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
         // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
         let b:(f32, f32) = (0. - depth* rad.sin(), l + depth * rad.cos());
+        let x_offset = (-b.0 / 4.0);
+        let offset_rad = (x_offset / l).asin();
+        let y_offset = offset_rad.cos() * l - l;
+        let a = (a.0 + x_offset, a.1 + y_offset);
+        let b = (b.0 + x_offset, b.1 + y_offset);
 
         let rad = std::f32::consts::FRAC_PI_8;
         let l1 = l + depth;
         let c = (-l * rad.sin(), l * rad.cos());
-        let d = (-l1 * rad.sin(), l1 * rad.cos());
+        // let d = (-l1 * rad.sin(), l1 * rad.cos());
+        let rad = std::f32::consts::PI / 9.;
+        let d = (c.0 + depth * rad.sin(), c.1 + depth * rad.cos());
         let e = (l * rad.sin(), l * rad.cos());
-        let f = (l1 * rad.sin(), l1 * rad.cos());
+        // let f = (l1 * rad.sin(), l1 * rad.cos());
+        let f = (e.0 - depth * rad.sin(), e.1 + depth * rad.cos());
         [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
     };
 }

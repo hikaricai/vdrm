@@ -122,7 +122,7 @@ impl Ctx {
             .map(|(x, y, z)| {
                 (
                     x,
-                    y + vdrm_alg::SCREEN_OFFSET,
+                    y + vdrm_alg::SCREEN_OFFSET + 2.,
                     -z - 1. - vdrm_alg::SCREEN_OFFSET,
                 )
             })

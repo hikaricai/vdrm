@@ -203,7 +203,7 @@ pub fn draw(
         .into_drawing_area();
     area.fill(&WHITE)?;
 
-    let axis_len = 1.5f32;
+    let axis_len = 2f32;
     let x_axis = (-axis_len..axis_len).step(0.1);
     let y_axis = (0f32..axis_len * 2.).step(0.1);
 

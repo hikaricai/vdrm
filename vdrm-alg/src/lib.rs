@@ -1,8 +1,8 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
 use std::collections::BTreeMap;
 
-pub const W_PIXELS: usize = 192;
-pub const H_PIXELS: usize = 96;
+pub const W_PIXELS: usize = 64;
+pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
 pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
@@ -45,10 +45,11 @@ lazy_static::lazy_static! {
         let depth = 2f32;
         let a:(f32, f32) = (0., l);
         let rad = std::f32::consts::PI / 9.;
-        //let rad = 0f32;
+        let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
         // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
         let b:(f32, f32) = (0. - depth* rad.sin(), l + depth * rad.cos());
+        let b:(f32, f32) = (0., l - depth);
         let x_offset = (-b.0 / 4.0);
         let offset_rad = (x_offset / l).asin();
         let y_offset = offset_rad.cos() * l - l;
@@ -60,10 +61,10 @@ lazy_static::lazy_static! {
         let c = (-l * rad.sin(), l * rad.cos());
         // let d = (-l1 * rad.sin(), l1 * rad.cos());
         let rad = std::f32::consts::PI / 9.;
-        let d = (c.0 + depth * rad.sin(), c.1 + depth * rad.cos());
+        let d = (c.0 + depth * rad.sin(), c.1 - depth * rad.cos());
         let e = (l * rad.sin(), l * rad.cos());
         // let f = (l1 * rad.sin(), l1 * rad.cos());
-        let f = (e.0 - depth * rad.sin(), e.1 + depth * rad.cos());
+        let f = (e.0 - depth * rad.sin(), e.1 - depth * rad.cos());
         [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
     };
 }
@@ -179,6 +180,14 @@ pub fn angle_to_v(p: u32) -> f32 {
     (p as f32 * 360. / TOTAL_ANGLES as f32).to_radians()
 }
 
+fn mirror_view(mat: glam::Mat3A, mut p: glam::Vec3A) -> glam::Vec3A {
+    let z_off = 2.414f32 * 2.;
+    p.z += z_off;
+    let mut p_view = mat * p;
+    p_view.z -= z_off;
+    p_view
+}
+
 fn cacl_view_point(
     mat: glam::Mat3A,
     screen_idx: usize,
@@ -195,7 +204,7 @@ fn cacl_view_point(
         .into();
     let z = pixel_to_v(pixel_z) - SCREEN_OFFSET;
     let p = glam::Vec3A::new(xy.x, xy.y, z);
-    let p_view = mat * p;
+    let p_view = mirror_view(mat, p);
     ((p_view.x, p_view.y, p_view.z), (p.x, p.y, p.z))
 }
 
@@ -245,15 +254,15 @@ impl Codec {
                     .unwrap()
                     - start.into();
                 let v_ob = glam::Vec3A::new(v_ob.x(), v_ob.y(), 0.);
-                log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                log::info!("screen p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 (screen, p_o, v_oa, v_ob)
             })
             .collect();
         for angle in 0..TOTAL_ANGLES {
             let angle = angle as u32;
             let angle_f = angle_to_v(angle);
-            let sin = angle_f.sin();
-            let cos = angle_f.cos();
+            let sin = -angle_f.sin();
+            let cos = -angle_f.cos();
             let sin2 = sin * sin;
             let cos2 = cos * cos;
             let sin_cos = sin * cos;
@@ -264,40 +273,42 @@ impl Codec {
             );
             mat_map.insert(angle, mat);
 
-            let center = glam::Vec3A::new(0., 0. + SCREEN_OFFSET, -1.5 - SCREEN_OFFSET);
+            // let center = glam::Vec3A::new(0., 0. + SCREEN_OFFSET, -1.5 - SCREEN_OFFSET);
+            let center = glam::Vec3A::new(0., 2. + SCREEN_OFFSET, -1.5 - SCREEN_OFFSET);
             let center = mat * center;
             let center_xy = geo::Point::new(center.x, center.y);
 
+            let dbg = angle == TOTAL_ANGLES as u32 / 4;
             for (screen_idx, (screen, p_o, v_oa, v_ob)) in
                 screen_metas.clone().into_iter().enumerate()
             {
                 let closest_len = closest_len(&screen.xy_line, &center_xy);
                 // log::info!("angle {angle} closest_len {closest_len}");
                 if closest_len > 2f32.sqrt() {
-                    continue;
+                    // continue;
                 }
 
-                let p_o = mat * p_o;
+                let p_o = mirror_view(mat, p_o);
                 let v_oa = mat * v_oa;
                 let v_ob = mat * v_ob;
-                if angle == 100 {
+                if dbg {
                     log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
 
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
-                        if angle >= 99 && angle <= 101 {
-                            // log::info!("i {i} j {j} p {p}");
+                        if dbg && i == 0 {
+                            log::info!("i {i} j {j} p {p}");
                         }
                         let pz = -p.z - 1.0 - SCREEN_OFFSET;
                         let px = p.x;
-                        let py = p.y - SCREEN_OFFSET;
+                        let py = p.y - SCREEN_OFFSET - 2.;
                         let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };
-                        if angle >= 99 && angle <= 101 {
-                            // log::info!("x {x} y {y} z {z}");
+                        if dbg && i == 0 {
+                            log::info!("x {x} y {y} z {z}");
                         }
                         let z_point = PixelZInfo {
                             angle,

@@ -38,25 +38,27 @@ impl Mirror {
     fn new(len: f32, angle: u32) -> Self {
         let angle = vdrm_alg::angle_to_v(angle);
         let mat = glam::Mat2::from_angle(angle);
+        let scal_w = std::f32::consts::SQRT_2;
+        let scal_w = 1.;
         let points = [
             (
                 len + vdrm_alg::SCREEN_OFFSET,
-                len,
-                -len - vdrm_alg::SCREEN_OFFSET,
+                len * scal_w,
+                len * scal_w - len - vdrm_alg::SCREEN_OFFSET,
             ),
             (
                 -len + vdrm_alg::SCREEN_OFFSET,
-                len,
+                len * scal_w,
                 len - vdrm_alg::SCREEN_OFFSET,
             ),
             (
                 -len + vdrm_alg::SCREEN_OFFSET,
-                -len,
+                -len * scal_w,
                 len - vdrm_alg::SCREEN_OFFSET,
             ),
             (
                 len + vdrm_alg::SCREEN_OFFSET,
-                -len,
+                -len * scal_w,
                 -len - vdrm_alg::SCREEN_OFFSET,
             ),
         ];
@@ -190,7 +192,7 @@ pub fn draw(
     });
     log::info!("draw");
     let mut guard = CTX.lock().unwrap();
-    let param = CtxParam{
+    let param = CtxParam {
         angle_range,
         enb_screens,
     };

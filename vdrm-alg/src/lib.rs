@@ -30,10 +30,12 @@ impl Default for ScreenLinePixels {
     }
 }
 
-pub const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
+pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
+const SCREEN_OFFSET: f32 = MIRROR_OFFSET + 1.;
+const VIRTUAL_IMG_CENTER: f32 = MIRROR_OFFSET - 1.;
 
 lazy_static::lazy_static! {
-    static ref SCREENS:[Screen; 3]  = {
+    static ref SCREENS:[Screen; 1]  = {
         // let u:(f32, f32) = (-2., 0.);
         // let v:(f32, f32) = (-1., -1.);
         // let w:(f32, f32) = (1., -1.);
@@ -41,10 +43,11 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let l = 1. + SCREEN_OFFSET;
+        let l = 1. + MIRROR_OFFSET;
         let depth = 2f32;
         let a:(f32, f32) = (0., l);
         let rad_rotate = std::f32::consts::PI / 9.;
+        let rad_rotate:f32 = 0.;
         // let rad_off = 0f32;
         // let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
@@ -67,7 +70,8 @@ lazy_static::lazy_static! {
         let d = (c.0 + depth * (rad_l + rad_rotate).sin(), c.1 + depth * (rad_l + rad_rotate).cos());
         // let f = (l1 * rad.sin(), l1 * rad.cos());
         let f = (e.0 + depth * (rad_r + rad_rotate).sin(), e.1 + depth * (rad_r + rad_rotate).cos());
-        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
+        // [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
+        [Screen::new([a, b])]
     };
 }
 
@@ -189,17 +193,17 @@ fn cacl_view_point(
     pixel_z: u32,
 ) -> ((f32, f32, f32), (f32, f32, f32)) {
     let screen = &SCREENS[screen_idx];
-    let len_start_s = pixel_to_v(addr) + CIRCLE_R;
-    let fraction = len_start_s / (CIRCLE_R * 2.);
+    let fraction = addr as f32 / W_PIXELS as f32;
     let xy: geo::Coord<_> = screen
         .xy_line
         .line_interpolate_point(fraction)
         .unwrap()
         .into();
-    let z = pixel_to_v(pixel_z) - SCREEN_OFFSET;
-    let p = glam::Vec3A::new(xy.x, xy.y, z);
-    let p_view = mat * p;
-    ((p_view.x, p_view.y, p_view.z), (p.x, p.y, p.z))
+    let z = pixel_to_h(pixel_z);
+    let p = glam::Vec3A::new(xy.x, xy.y, 1.);
+    let mut p_view = mat * p;
+    p_view.z = z;
+    ((p_view.x, p_view.y, p_view.z), (p.x, p.y, z))
 }
 
 fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
@@ -212,14 +216,14 @@ fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
 }
 
 pub struct Codec {
-    xy_arrs: [PixelXYArr; 3],
+    xy_arrs: [PixelXYArr; 1],
     mat_map: BTreeMap<u32, glam::Mat3A>,
 }
 
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
-        let mut xy_arrs = [PixelXYArr::new(), PixelXYArr::new(), PixelXYArr::new()];
+        let mut xy_arrs = [PixelXYArr::new()];
         for _x in 0..W_PIXELS {
             let mut line = vec![];
             line.extend(
@@ -228,8 +232,8 @@ impl Codec {
                     .map(|_| [None; H_PIXELS]),
             );
             xy_arrs[0].push(line.clone());
-            xy_arrs[1].push(line.clone());
-            xy_arrs[2].push(line);
+            // xy_arrs[1].push(line.clone());
+            // xy_arrs[2].push(line);
         }
         let mut mat_map = BTreeMap::new();
         let screen_metas: Vec<_> = SCREENS
@@ -237,7 +241,7 @@ impl Codec {
             .map(|screen| {
                 let start = screen.xy_line.start;
                 let end = screen.xy_line.end;
-                let p_o = glam::Vec3A::new(start.x, start.y, -1. - SCREEN_OFFSET);
+                let p_o = glam::Vec3A::new(start.x, start.y, 0.);
                 // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
                 // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
 
@@ -261,15 +265,22 @@ impl Codec {
             let cos2 = cos * cos;
             let sin_cos = sin * cos;
             let mat = glam::Mat3A::from_cols(
-                glam::Vec3A::new(sin2, -sin_cos, -cos),
-                glam::Vec3A::new(-sin_cos, cos2, -sin),
-                glam::Vec3A::new(-cos, -sin, 0.),
+                glam::Vec3A::new(sin2 - cos2, -2.0 * sin_cos, 0.),
+                glam::Vec3A::new(-2.0 * sin_cos, cos2 - sin2, 0.),
+                glam::Vec3A::new(2.0 * MIRROR_OFFSET * cos, 2.0 * MIRROR_OFFSET * sin, 1.),
             );
             mat_map.insert(angle, mat);
 
-            let center = glam::Vec3A::new(0., 0. + SCREEN_OFFSET, -1.5 - SCREEN_OFFSET);
+            let mat_o = glam::Mat2::from_cols(
+                glam::Vec2::new(mat.x_axis.x, mat.x_axis.y),
+                glam::Vec2::new(mat.y_axis.x, mat.y_axis.y),
+            );
+
+            let center = glam::Vec3A::new(0.0, VIRTUAL_IMG_CENTER, 1.0);
             let center = mat * center;
             let center_xy = geo::Point::new(center.x, center.y);
+
+            let dbg = angle == 100;
 
             for (screen_idx, (screen, p_o, v_oa, v_ob)) in
                 screen_metas.clone().into_iter().enumerate()
@@ -280,27 +291,36 @@ impl Codec {
                     continue;
                 }
 
-                let p_o = mat * p_o;
-                let v_oa = mat * v_oa;
-                let v_ob = mat * v_ob;
-                if angle == 100 {
+                if dbg {
+                    log::info!("ori p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                }
+
+                let mut p_o_2 = p_o.clone();
+                p_o_2.z = 1.;
+                let mut p_o_2 = mat * p_o_2;
+                let p_o = glam::Vec3A::new(p_o_2.x, p_o_2.y, p_o.z);
+                let v_oa_2 = mat_o * glam::Vec2::new(v_oa.x, v_oa.y);
+                let v_oa = glam::Vec3A::new(v_oa_2.x, v_oa_2.y, v_oa.z);
+                let v_ob_2 = mat_o * glam::Vec2::new(v_ob.x, v_ob.y);
+                let v_ob = glam::Vec3A::new(v_ob_2.x, v_ob_2.y, v_ob.z);
+                if dbg {
                     log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
 
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
-                        if angle >= 99 && angle <= 101 {
-                            // log::info!("i {i} j {j} p {p}");
+                        if dbg {
+                            log::info!("i {i} j {j} p {p}");
                         }
-                        let pz = -p.z - 1.0 - SCREEN_OFFSET;
+                        let pz = p.z;
                         let px = p.x;
-                        let py = p.y - SCREEN_OFFSET;
+                        let py = p.y - VIRTUAL_IMG_CENTER + CIRCLE_R;
                         let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };
-                        if angle >= 99 && angle <= 101 {
-                            // log::info!("x {x} y {y} z {z}");
+                        if dbg {
+                            log::info!("x {x} y {y} z {z}");
                         }
                         let z_point = PixelZInfo {
                             angle,
@@ -378,7 +398,7 @@ impl Codec {
         let mut angle_map: BTreeMap<u32, [BTreeMap<ScreenLineAddr, ScreenLinePixels>; 3]> =
             BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
-            for screen_idx in 0..3usize {
+            for screen_idx in 0..1usize {
                 let z_info_list = &self.xy_arrs[screen_idx][x as usize][y as usize];
                 // fix z offset
                 // TODO find the reason for offset

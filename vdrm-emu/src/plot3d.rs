@@ -42,24 +42,24 @@ impl Mirror {
         let scal_w = 1.;
         let points = [
             (
-                len + vdrm_alg::SCREEN_OFFSET,
+                len + vdrm_alg::MIRROR_OFFSET,
                 len * scal_w,
-                len * scal_w - len - vdrm_alg::SCREEN_OFFSET,
+                len * scal_w - len - vdrm_alg::MIRROR_OFFSET,
             ),
             (
-                -len + vdrm_alg::SCREEN_OFFSET,
+                -len + vdrm_alg::MIRROR_OFFSET,
                 len * scal_w,
-                len - vdrm_alg::SCREEN_OFFSET,
+                len - vdrm_alg::MIRROR_OFFSET,
             ),
             (
-                -len + vdrm_alg::SCREEN_OFFSET,
+                -len + vdrm_alg::MIRROR_OFFSET,
                 -len * scal_w,
-                len - vdrm_alg::SCREEN_OFFSET,
+                len - vdrm_alg::MIRROR_OFFSET,
             ),
             (
-                len + vdrm_alg::SCREEN_OFFSET,
+                len + vdrm_alg::MIRROR_OFFSET,
                 -len * scal_w,
-                -len - vdrm_alg::SCREEN_OFFSET,
+                -len - vdrm_alg::MIRROR_OFFSET,
             ),
         ];
         let points = points.map(|(x, y, z)| {
@@ -82,10 +82,10 @@ impl Screen {
         let xy_line = vdrm_alg::screens()[idx].xy_line;
         let (a, b) = xy_line.points();
         let points = [
-            (a.x(), a.y(), -1. - vdrm_alg::SCREEN_OFFSET),
-            (a.x(), a.y(), 1. - vdrm_alg::SCREEN_OFFSET),
-            (b.x(), b.y(), 1. - vdrm_alg::SCREEN_OFFSET),
-            (b.x(), b.y(), -1. - vdrm_alg::SCREEN_OFFSET),
+            (a.x(), a.y(), 0.),
+            (a.x(), a.y(), 2.),
+            (b.x(), b.y(), 2.),
+            (b.x(), b.y(), 0.),
         ];
         Self { points }
     }
@@ -111,7 +111,7 @@ struct Ctx {
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
-    screens: [Screen; 3],
+    screens: [Screen; 1],
     param: CtxParam,
 }
 
@@ -121,13 +121,7 @@ impl Ctx {
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| {
-                (
-                    x,
-                    y + vdrm_alg::SCREEN_OFFSET,
-                    -z - 1. - vdrm_alg::SCREEN_OFFSET,
-                )
-            })
+            .map(|(x, y, z)| (x, y - 2. + vdrm_alg::MIRROR_OFFSET, z))
             .collect();
         let optimze_speed_for_mbi5264 = false;
         let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);
@@ -171,7 +165,7 @@ impl Ctx {
             all_real_pixels,
             all_emu_pixels,
             all_led_pixels,
-            screens: [0, 1, 2].map(|idx| Screen::new(idx)),
+            screens: [0].map(|idx| Screen::new(idx)),
             param,
         }
     }
@@ -207,12 +201,12 @@ pub fn draw(
 
     let axis_len = 1.5f32;
     let x_axis = (-axis_len..axis_len).step(0.1);
-    let y_axis = (0f32..axis_len * 2.).step(0.1);
+    let y_axis = (-axis_len..axis_len).step(0.1);
 
     let mut chart = ChartBuilder::on(&area).build_cartesian_3d(
         x_axis.clone(),
         y_axis.clone(),
-        -axis_len * 2. ..0.,
+        0. ..axis_len * 2.,
     )?;
     chart.with_projection(|_pb| {
         let (x, y) = area.get_pixel_range();
@@ -245,10 +239,10 @@ pub fn draw(
     chart
         .draw_series(
             [
-                ("x", (axis_len, 0., -axis_len * 2.), &RED),
-                ("y", (-axis_len, axis_len * 2., -axis_len * 2.), &GREEN),
-                ("z", (-axis_len, 0., 0.), &BLUE),
-                ("o'", (-axis_len, 0., -axis_len * 2.), &CYAN),
+                ("x", (axis_len, -axis_len, 0.), &RED),
+                ("y", (-axis_len, axis_len, 0.), &GREEN),
+                ("z", (-axis_len, -axis_len, axis_len * 2.), &BLUE),
+                ("o'", (-axis_len, -axis_len, 0.), &CYAN),
             ]
             .map(|(label, position, color)| {
                 Text::new(

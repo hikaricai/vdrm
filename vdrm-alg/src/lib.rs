@@ -1,4 +1,5 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
+use glam::Vec3A;
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
@@ -6,6 +7,43 @@ pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
 pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+
+// 点顺时针
+// 坐标系逆时针
+const MAT_ROTATE_X: glam::Mat2 = glam::Mat2::from_cols(
+    glam::Vec2::new(
+        std::f32::consts::FRAC_1_SQRT_2,
+        -std::f32::consts::FRAC_1_SQRT_2,
+    ),
+    glam::Vec2::new(
+        std::f32::consts::FRAC_1_SQRT_2,
+        std::f32::consts::FRAC_1_SQRT_2,
+    ),
+);
+
+const MAT_ROTATE_X_REV: glam::Mat2 = glam::Mat2::from_cols(
+    glam::Vec2::new(
+        std::f32::consts::FRAC_1_SQRT_2,
+        std::f32::consts::FRAC_1_SQRT_2,
+    ),
+    glam::Vec2::new(
+        -std::f32::consts::FRAC_1_SQRT_2,
+        std::f32::consts::FRAC_1_SQRT_2,
+    ),
+);
+
+pub fn rotate_x(v: glam::Vec3A) -> glam::Vec3A {
+    let v2 = glam::Vec2::new(v.y, v.z);
+    let v2 = MAT_ROTATE_X * v2;
+    glam::Vec3A::new(v.x, v2.x, v2.y)
+}
+
+pub fn rotate_x_rev(v: glam::Vec3A) -> glam::Vec3A {
+    let v2 = glam::Vec2::new(v.y, v.z);
+    let v2 = MAT_ROTATE_X_REV * v2;
+    glam::Vec3A::new(v.x, v2.x, v2.y)
+}
+
 // pub const TOTAL_ANGLES: usize = 360;
 
 type PixelColor = u32;
@@ -32,6 +70,9 @@ impl Default for ScreenLinePixels {
 
 pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
 const SCREEN_OFFSET: f32 = MIRROR_OFFSET + 1.;
+const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET - 1.) / std::f32::consts::SQRT_2;
+const V_IMG_Z_TOP: f32 = (MIRROR_OFFSET - 1.) / std::f32::consts::SQRT_2;
+
 const VIRTUAL_IMG_CENTER: f32 = MIRROR_OFFSET - 1.;
 
 lazy_static::lazy_static! {
@@ -43,7 +84,8 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let l = 1. + MIRROR_OFFSET;
+        let l = SCREEN_OFFSET / std::f32::consts::SQRT_2;
+        // let l = SCREEN_OFFSET;
         let depth = 2f32;
         let a:(f32, f32) = (0., l);
         let rad_rotate = std::f32::consts::PI / 9.;
@@ -200,10 +242,14 @@ fn cacl_view_point(
         .unwrap()
         .into();
     let z = pixel_to_h(pixel_z);
-    let p = glam::Vec3A::new(xy.x, xy.y, 1.);
+    let v = glam::Vec3A::new(xy.x, xy.y, z + SCREEN_OFFSET / std::f32::consts::SQRT_2);
+    let led = v;
+    let v = rotate_x(v);
+    let p = glam::Vec3A::new(v.x, v.y, 1.);
     let mut p_view = mat * p;
-    p_view.z = z;
-    ((p_view.x, p_view.y, p_view.z), (p.x, p.y, z))
+    p_view.z = v.z;
+    let p_view = rotate_x_rev(p_view);
+    ((p_view.x, p_view.y, p_view.z), (led.x, led.y, led.z))
 }
 
 fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
@@ -241,7 +287,8 @@ impl Codec {
             .map(|screen| {
                 let start = screen.xy_line.start;
                 let end = screen.xy_line.end;
-                let p_o = glam::Vec3A::new(start.x, start.y, 0.);
+                let p_o =
+                    glam::Vec3A::new(start.x, start.y, SCREEN_OFFSET / std::f32::consts::SQRT_2);
                 // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
                 // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
 
@@ -253,6 +300,10 @@ impl Codec {
                     - start.into();
                 let v_ob = glam::Vec3A::new(v_ob.x(), v_ob.y(), 0.);
                 log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                let p_o = rotate_x(p_o);
+                let v_oa = rotate_x(v_oa);
+                let v_ob = rotate_x(v_ob);
+                log::info!("rotate x p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 (screen, p_o, v_oa, v_ob)
             })
             .collect();
@@ -307,15 +358,21 @@ impl Codec {
                     log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
 
+                let p_o = rotate_x_rev(p_o);
+                let v_oa = rotate_x_rev(v_oa);
+                let v_ob = rotate_x_rev(v_ob);
+                if dbg {
+                    log::info!("p_o rev {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                }
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
                         if dbg {
                             log::info!("i {i} j {j} p {p}");
                         }
-                        let pz = p.z;
+                        let pz = p.z - V_IMG_Z_TOP + 1.;
                         let px = p.x;
-                        let py = p.y - VIRTUAL_IMG_CENTER + CIRCLE_R;
+                        let py = p.y - V_IMG_Y_TOP + 1.;
                         let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };

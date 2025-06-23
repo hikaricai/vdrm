@@ -6,7 +6,7 @@ pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-pub const TOTAL_ANGLES: usize = W_PIXELS * 2 * 314 / 100;
+pub const TOTAL_ANGLES: usize = 2 * W_PIXELS * 2 * 314 / 100;
 
 // 点顺时针
 // 坐标系逆时针
@@ -68,10 +68,10 @@ impl Default for ScreenLinePixels {
     }
 }
 
-pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
-const SCREEN_OFFSET: f32 = MIRROR_OFFSET + 1.;
-const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET - 1.) / std::f32::consts::SQRT_2;
-const V_IMG_Z_TOP: f32 = (MIRROR_OFFSET - 1.) / std::f32::consts::SQRT_2;
+pub const MIRROR_OFFSET: f32 = 0.7;
+const SCREEN_OFFSET: f32 = 2.414;
+const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
+const V_IMG_Z_TOP: f32 = V_IMG_Y_TOP;
 
 const VIRTUAL_IMG_CENTER: f32 = MIRROR_OFFSET - 1.;
 

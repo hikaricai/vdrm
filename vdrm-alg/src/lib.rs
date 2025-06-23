@@ -68,7 +68,7 @@ impl Default for ScreenLinePixels {
     }
 }
 
-pub const MIRROR_OFFSET: f32 = 0.7;
+pub const MIRROR_OFFSET: f32 = 1.414;
 const SCREEN_OFFSET: f32 = 2.414;
 const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
 const V_IMG_Z_TOP: f32 = V_IMG_Y_TOP;

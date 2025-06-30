@@ -19,7 +19,7 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
                 continue;
             }
             let z = (r - 1 - h) as u32;
-            // let z = h as u32;
+            let z = h as u32;
             let color = match (x_i32 >= 0, y_i32 >= 0) {
                 (true, true) => 0b111,
                 (false, true) => 0b001,
@@ -199,14 +199,14 @@ pub fn draw(
         .into_drawing_area();
     area.fill(&WHITE)?;
 
-    let axis_len = 2f32;
+    let axis_len = 4f32;
     let x_axis = (-axis_len..axis_len).step(0.1);
     let y_axis = (-axis_len..axis_len).step(0.1);
 
     let mut chart = ChartBuilder::on(&area).build_cartesian_3d(
         x_axis.clone(),
         y_axis.clone(),
-        0. ..axis_len * 2.,
+        -axis_len..axis_len,
     )?;
     chart.with_projection(|_pb| {
         let (x, y) = area.get_pixel_range();
@@ -239,10 +239,10 @@ pub fn draw(
     chart
         .draw_series(
             [
-                ("x", (axis_len, -axis_len, 0.), &RED),
-                ("y", (-axis_len, axis_len, 0.), &GREEN),
-                ("z", (-axis_len, -axis_len, axis_len * 2.), &BLUE),
-                ("o'", (-axis_len, -axis_len, 0.), &CYAN),
+                ("x", (axis_len, -axis_len, -axis_len), &RED),
+                ("y", (-axis_len, axis_len, -axis_len), &GREEN),
+                ("z", (-axis_len, -axis_len, axis_len), &BLUE),
+                ("o'", (-axis_len, -axis_len, -axis_len), &CYAN),
             ]
             .map(|(label, position, color)| {
                 Text::new(

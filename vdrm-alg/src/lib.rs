@@ -6,7 +6,7 @@ pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
 const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
-pub const TOTAL_ANGLES: usize = 2 * W_PIXELS * 2 * 314 / 100;
+pub const TOTAL_ANGLES: usize = W_PIXELS * 6 * 2;
 
 // 点顺时针
 // 坐标系逆时针
@@ -68,12 +68,13 @@ impl Default for ScreenLinePixels {
     }
 }
 
-pub const MIRROR_OFFSET: f32 = 1.414;
+pub const MIRROR_OFFSET: f32 = 1.0;
+const MIRROR_OFFSET2: f32 = -1.0;
 const SCREEN_OFFSET: f32 = 2.414;
-const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
+const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET2 * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
 const V_IMG_Z_TOP: f32 = V_IMG_Y_TOP;
 
-const VIRTUAL_IMG_CENTER: f32 = MIRROR_OFFSET - 1.;
+const VIRTUAL_IMG_CENTER: f32 = V_IMG_Y_TOP - 0.5;
 
 lazy_static::lazy_static! {
     static ref SCREENS:[Screen; 1]  = {
@@ -310,7 +311,7 @@ impl Codec {
         for angle in 0..TOTAL_ANGLES {
             let angle = angle as u32;
             let angle_f = angle_to_v(angle);
-            let sin = angle_f.sin();
+            let sin = -angle_f.sin();
             let cos = angle_f.cos();
             let sin2 = sin * sin;
             let cos2 = cos * cos;

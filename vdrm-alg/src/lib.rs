@@ -270,6 +270,7 @@ pub struct Codec {
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
+        // 初始化坐标map key是xyz虚像自己的相对坐标
         let mut xy_arrs = [PixelXYArr::new()];
         for _x in 0..W_PIXELS {
             let mut line = vec![];
@@ -301,6 +302,7 @@ impl Codec {
                     - start.into();
                 let v_ob = glam::Vec3A::new(v_ob.x(), v_ob.y(), 0.);
                 log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                // 把水平放置的屏幕向量 旋转一下 相当于把屏幕歇着放置
                 let p_o = rotate_x(p_o);
                 let v_oa = rotate_x(v_oa);
                 let v_ob = rotate_x(v_ob);
@@ -316,6 +318,7 @@ impl Codec {
             let sin2 = sin * sin;
             let cos2 = cos * cos;
             let sin_cos = sin * cos;
+            // 镜子是垂直的 这个mat其实是xy二维的
             let mat = glam::Mat3A::from_cols(
                 glam::Vec3A::new(sin2 - cos2, -2.0 * sin_cos, 0.),
                 glam::Vec3A::new(-2.0 * sin_cos, cos2 - sin2, 0.),
@@ -323,13 +326,16 @@ impl Codec {
             );
             mat_map.insert(angle, mat);
 
+            // 真正的二维镜像
             let mat_o = glam::Mat2::from_cols(
                 glam::Vec2::new(mat.x_axis.x, mat.x_axis.y),
                 glam::Vec2::new(mat.y_axis.x, mat.y_axis.y),
             );
 
+            // 虚像的中心 本质也是二维
             let center = glam::Vec3A::new(0.0, VIRTUAL_IMG_CENTER, 1.0);
             let center = mat * center;
+            // 虚像对应实际的和屏幕接触的中心
             let center_xy = geo::Point::new(center.x, center.y);
 
             let dbg = angle == 100;
@@ -337,6 +343,7 @@ impl Codec {
             for (screen_idx, (screen, p_o, v_oa, v_ob)) in
                 screen_metas.clone().into_iter().enumerate()
             {
+                // 过滤掉太远的角度 减小计算量
                 let closest_len = closest_len(&screen.xy_line, &center_xy);
                 // log::info!("angle {angle} closest_len {closest_len}");
                 if closest_len > 2f32.sqrt() {
@@ -347,9 +354,10 @@ impl Codec {
                     log::info!("ori p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
 
+                // 把斜着放的屏幕的向量映射到虚像空间 实际上是二维坐标变换
                 let mut p_o_2 = p_o.clone();
                 p_o_2.z = 1.;
-                let mut p_o_2 = mat * p_o_2;
+                let p_o_2 = mat * p_o_2;
                 let p_o = glam::Vec3A::new(p_o_2.x, p_o_2.y, p_o.z);
                 let v_oa_2 = mat_o * glam::Vec2::new(v_oa.x, v_oa.y);
                 let v_oa = glam::Vec3A::new(v_oa_2.x, v_oa_2.y, v_oa.z);
@@ -359,12 +367,14 @@ impl Codec {
                     log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
 
+                // 虚像空间的斜着的屏幕向量修正回普通坐标 方便计算
                 let p_o = rotate_x_rev(p_o);
                 let v_oa = rotate_x_rev(v_oa);
                 let v_ob = rotate_x_rev(v_ob);
                 if dbg {
                     log::info!("p_o rev {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
+                // 计算屏幕上每一个点对应虚像自己坐标的位置
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);

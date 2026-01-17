@@ -36,35 +36,23 @@ struct Mirror {
 }
 impl Mirror {
     fn new(len: f32, angle: u32) -> Self {
+        // let len = len / 2.0;
         let angle = vdrm_alg::angle_to_v(angle);
         let mat = glam::Mat2::from_angle(angle);
-        let scal_w = std::f32::consts::SQRT_2;
-        let scal_w = 1.;
         let points = [
-            (
-                len + vdrm_alg::MIRROR_OFFSET,
-                len * scal_w,
-                -len - vdrm_alg::MIRROR_OFFSET,
-            ),
-            (
-                -len + vdrm_alg::MIRROR_OFFSET,
-                len * scal_w,
-                len - vdrm_alg::MIRROR_OFFSET,
-            ),
-            (
-                -len + vdrm_alg::MIRROR_OFFSET,
-                -len * scal_w,
-                len - vdrm_alg::MIRROR_OFFSET,
-            ),
-            (
-                len + vdrm_alg::MIRROR_OFFSET,
-                -len * scal_w,
-                -len - vdrm_alg::MIRROR_OFFSET,
-            ),
+            (-vdrm_alg::MIRROR_OFFSET, -len, -len),
+            (-vdrm_alg::MIRROR_OFFSET, len, -len),
+            (-vdrm_alg::MIRROR_OFFSET, len, len),
+            (-vdrm_alg::MIRROR_OFFSET, -len, len),
         ];
         let points = points.map(|(x, y, z)| {
             let p = mat * glam::Vec2::new(x, y);
             (p.x, p.y, z)
+        });
+        let points = points.map(|(x, y, z)| {
+            let mat = glam::Mat2::from_angle(45f32.to_radians());
+            let p = mat * glam::Vec2::new(y, z);
+            (x, p.x, p.y)
         });
         Self { points }
     }

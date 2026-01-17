@@ -44,7 +44,7 @@ impl Mirror {
             (
                 len + vdrm_alg::MIRROR_OFFSET,
                 len * scal_w,
-                len * scal_w - len - vdrm_alg::MIRROR_OFFSET,
+                -len - vdrm_alg::MIRROR_OFFSET,
             ),
             (
                 -len + vdrm_alg::MIRROR_OFFSET,

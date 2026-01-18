@@ -230,7 +230,7 @@ pub fn angle_to_v(p: u32) -> f32 {
 }
 
 fn cacl_view_point(
-    mat: glam::Mat3A,
+    mat: glam::Mat4,
     screen_idx: usize,
     addr: u32,
     pixel_z: u32,
@@ -243,13 +243,14 @@ fn cacl_view_point(
         .unwrap()
         .into();
     let z = pixel_to_h(pixel_z);
-    let v = glam::Vec3A::new(xy.x, xy.y, z + SCREEN_OFFSET / std::f32::consts::SQRT_2);
+    let v = glam::Vec4::new(
+        xy.x,
+        xy.y,
+        z + SCREEN_OFFSET / std::f32::consts::SQRT_2,
+        1.0,
+    );
     let led = v;
-    let v = rotate_x(v);
-    let p = glam::Vec3A::new(v.x, v.y, 1.);
-    let mut p_view = mat * p;
-    p_view.z = v.z;
-    let p_view = rotate_x_rev(p_view);
+    let p_view = mat * v;
     ((p_view.x, p_view.y, p_view.z), (led.x, led.y, led.z))
 }
 
@@ -262,9 +263,38 @@ fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
     close_p.euclidean_distance(p)
 }
 
+fn mirror_mat4(angle_f: f32) -> glam::Mat4 {
+    let sin = -angle_f.sin();
+    let cos = angle_f.cos();
+    let sin2 = sin * sin;
+    let cos2 = cos * cos;
+    let sin_cos = sin * cos;
+    let mat_mir = glam::Mat4::from_cols(
+        glam::Vec4::new(sin2 - cos2, -2.0 * sin_cos, 0., 0.),
+        glam::Vec4::new(-2.0 * sin_cos, cos2 - sin2, 0., 0.),
+        glam::Vec4::new(0., 0., 1., 0.),
+        glam::Vec4::new(2.0 * MIRROR_OFFSET * cos, 2.0 * MIRROR_OFFSET * sin, 0., 1.),
+    );
+    let mat_ratate_x = glam::Mat4::from_cols(
+        glam::Vec4::new(1.0, 0.0, 0.0, 0.),
+        glam::Vec4::new(0.0, MAT_ROTATE_X.x_axis.x, MAT_ROTATE_X.x_axis.y, 0.),
+        glam::Vec4::new(0.0, MAT_ROTATE_X.y_axis.x, MAT_ROTATE_X.y_axis.y, 0.),
+        glam::Vec4::new(0.0, 0., 0., 1.),
+    );
+    let ro_rev = MAT_ROTATE_X_REV;
+    let mat_ratate_x_rev = glam::Mat4::from_cols(
+        glam::Vec4::new(1.0, 0.0, 0.0, 0.),
+        glam::Vec4::new(0.0, ro_rev.x_axis.x, ro_rev.x_axis.y, 0.),
+        glam::Vec4::new(0.0, ro_rev.y_axis.x, ro_rev.y_axis.y, 0.),
+        glam::Vec4::new(0.0, 0., 0., 1.),
+    );
+    let mat = mat_ratate_x_rev * mat_mir * mat_ratate_x;
+    mat
+}
+
 pub struct Codec {
     xy_arrs: [PixelXYArr; 1],
-    mat_map: BTreeMap<u32, glam::Mat3A>,
+    mat_map: BTreeMap<u32, glam::Mat4>,
 }
 
 impl Codec {
@@ -289,56 +319,43 @@ impl Codec {
             .map(|screen| {
                 let start = screen.xy_line.start;
                 let end = screen.xy_line.end;
-                let p_o =
-                    glam::Vec3A::new(start.x, start.y, SCREEN_OFFSET / std::f32::consts::SQRT_2);
+                let p_o = glam::Vec4::new(
+                    start.x,
+                    start.y,
+                    SCREEN_OFFSET / std::f32::consts::SQRT_2,
+                    1.0,
+                );
                 // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
                 // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
 
-                let v_oa = glam::Vec3A::new(0., 0., POINT_SIZE);
+                // let p_z = p_o + glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
+                // let p_y = p_o + glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
+                // log::info!("p_o {p_o:?} p_y {p_y:?} p_z {p_z:?}");
+                let v_oa = glam::Vec4::new(0., 0., POINT_SIZE, 1.0);
                 let v_ob = geo::Line::new(start, end);
                 let v_ob = v_ob
                     .line_interpolate_point(POINT_SIZE / v_ob.euclidean_length())
                     .unwrap()
                     - start.into();
-                let v_ob = glam::Vec3A::new(v_ob.x(), v_ob.y(), 0.);
+                let v_ob = glam::Vec4::new(v_ob.x(), v_ob.y(), 0., 1.0);
                 log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
-                // 把水平放置的屏幕向量 旋转一下 相当于把屏幕歇着放置
-                let p_o = rotate_x(p_o);
-                let v_oa = rotate_x(v_oa);
-                let v_ob = rotate_x(v_ob);
-                log::info!("rotate x p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 (screen, p_o, v_oa, v_ob)
             })
             .collect();
         for angle in 0..TOTAL_ANGLES {
             let angle = angle as u32;
             let angle_f = angle_to_v(angle);
-            let sin = -angle_f.sin();
-            let cos = angle_f.cos();
-            let sin2 = sin * sin;
-            let cos2 = cos * cos;
-            let sin_cos = sin * cos;
-            // 镜子是垂直的 这个mat其实是xy二维的
-            let mat = glam::Mat3A::from_cols(
-                glam::Vec3A::new(sin2 - cos2, -2.0 * sin_cos, 0.),
-                glam::Vec3A::new(-2.0 * sin_cos, cos2 - sin2, 0.),
-                glam::Vec3A::new(2.0 * MIRROR_OFFSET * cos, 2.0 * MIRROR_OFFSET * sin, 1.),
-            );
+            let mat = mirror_mat4(angle_f);
             mat_map.insert(angle, mat);
 
-            // 真正的二维镜像
-            let mat_o = glam::Mat2::from_cols(
-                glam::Vec2::new(mat.x_axis.x, mat.x_axis.y),
-                glam::Vec2::new(mat.y_axis.x, mat.y_axis.y),
-            );
-
-            // 虚像的中心 本质也是二维
-            let center = glam::Vec3A::new(0.0, VIRTUAL_IMG_CENTER, 1.0);
+            // 虚像的中心
+            let center = glam::Vec4::new(0.0, VIRTUAL_IMG_CENTER, VIRTUAL_IMG_CENTER, 1.0);
             let center = mat * center;
             // 虚像对应实际的和屏幕接触的中心
             let center_xy = geo::Point::new(center.x, center.y);
 
-            let dbg = angle == 100;
+            let dbg = angle == (TOTAL_ANGLES as u32 / 4);
+            // Vec4(0.0, 1.0, 1.0, 1.0) v_oa Vec4(0.0, 0.0, 0.03125, 1.0) v_ob Vec4(0.0, 0.03125, 0.0, 1.0)
 
             for (screen_idx, (screen, p_o, v_oa, v_ob)) in
                 screen_metas.clone().into_iter().enumerate()
@@ -347,37 +364,32 @@ impl Codec {
                 let closest_len = closest_len(&screen.xy_line, &center_xy);
                 // log::info!("angle {angle} closest_len {closest_len}");
                 if closest_len > 2f32.sqrt() {
-                    continue;
+                    // continue;
                 }
 
+                let v_o = mat * glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
                 if dbg {
-                    log::info!("ori p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                    log::info!("angle_f {angle_f}");
+                    log::info!("mat {mat}");
                 }
 
                 // 把斜着放的屏幕的向量映射到虚像空间 实际上是二维坐标变换
-                let mut p_o_2 = p_o.clone();
-                p_o_2.z = 1.;
-                let p_o_2 = mat * p_o_2;
-                let p_o = glam::Vec3A::new(p_o_2.x, p_o_2.y, p_o.z);
-                let v_oa_2 = mat_o * glam::Vec2::new(v_oa.x, v_oa.y);
-                let v_oa = glam::Vec3A::new(v_oa_2.x, v_oa_2.y, v_oa.z);
-                let v_ob_2 = mat_o * glam::Vec2::new(v_ob.x, v_ob.y);
-                let v_ob = glam::Vec3A::new(v_ob_2.x, v_ob_2.y, v_ob.z);
+                let p_o = mat * p_o;
+                let v_oa = mat * v_oa;
+                let v_ob = mat * v_ob;
                 if dbg {
                     log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
-
-                // 虚像空间的斜着的屏幕向量修正回普通坐标 方便计算
-                let p_o = rotate_x_rev(p_o);
-                let v_oa = rotate_x_rev(v_oa);
-                let v_ob = rotate_x_rev(v_ob);
+                let v_oa = v_oa - v_o;
+                let v_ob = v_ob - v_o;
                 if dbg {
-                    log::info!("p_o rev {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
+                    log::info!("new v_o {v_o} v_oa {v_oa:?} v_ob {v_ob:?}");
                 }
                 // 计算屏幕上每一个点对应虚像自己坐标的位置
                 for i in 0..W_PIXELS {
                     for j in 0..W_PIXELS {
                         let p = p_o + v_oa * (i as f32) + v_ob * (j as f32);
+                        let dbg = dbg && (i < 10 && j < 10);
                         if dbg {
                             log::info!("i {i} j {j} p {p}");
                         }
@@ -628,4 +640,18 @@ fn parse_addr_map(
             }
         })
         .collect::<Vec<_>>()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_mirror_mat() {
+        let angle = (90f32).to_radians();
+        let mat = mirror_mat4(angle);
+        let p = glam::Vec4::new(0.0, 1.0, 1.0, 1.0);
+        let p = mat * p;
+        // p [-0.00000024726896, -2.9999998, -2.9999998, 1]
+        println!("p {p}");
+    }
 }

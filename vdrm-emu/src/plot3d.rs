@@ -110,7 +110,7 @@ impl Ctx {
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y - 5., z - 5.))
+            .map(|(x, y, z)| (x, y - 4., z - 5.))
             .collect();
         let optimze_speed_for_mbi5264 = false;
         let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);

@@ -74,8 +74,9 @@ impl Default for ScreenLinePixels {
 pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
 const MIRROR_OFFSET2: f32 = -std::f32::consts::SQRT_2;
 const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
-const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET2 * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
-const V_IMG_Z_TOP: f32 = V_IMG_Y_TOP;
+// const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET2 * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
+const V_IMG_Y_TOP: f32 = -2.;
+const V_IMG_Z_TOP: f32 = -3.;
 
 const VIRTUAL_IMG_CENTER: f32 = V_IMG_Y_TOP - 0.5;
 
@@ -177,12 +178,12 @@ pub fn pixel_surface_to_float(pixel_surface: &PixelSurface) -> FloatSurface {
 
 fn pixel_to_v(p: u32) -> f32 {
     let point_size: f32 = POINT_SIZE;
-    p as f32 * point_size + 0.5 * point_size - CIRCLE_R
+    p as f32 * point_size + 0.5 * point_size - CIRCLE_R * SCREEN_ZOOM
 }
 
 fn v_to_pixel(v: f32) -> Option<u32> {
     let point_size: f32 = POINT_SIZE;
-    let v = (v + CIRCLE_R) / point_size - 0.5;
+    let v = (v + CIRCLE_R * SCREEN_ZOOM) / point_size - 0.5;
     if v < -POINT_SIZE {
         return None;
     }

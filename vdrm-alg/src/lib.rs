@@ -9,7 +9,8 @@ const SCREEN_ZOOM: f32 = 2.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 pub const SCREEN_Z_OFFSET: f32 = SCREEN_OFFSET / std::f32::consts::SQRT_2 - (SCREEN_ZOOM - 1.0);
-pub const TOTAL_ANGLES: usize = W_PIXELS * 6 * 2;
+// 六边形就x6 越大越清晰
+pub const TOTAL_ANGLES: usize = W_PIXELS * 6;
 
 // 点顺时针
 // 坐标系逆时针

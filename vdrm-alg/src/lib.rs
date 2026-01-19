@@ -5,7 +5,10 @@ use std::collections::BTreeMap;
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
-const POINT_SIZE: f32 = 2. * CIRCLE_R / W_PIXELS as f32;
+const SCREEN_ZOOM: f32 = 2.;
+pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
+const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
+pub const SCREEN_Z_OFFSET: f32 = SCREEN_OFFSET / std::f32::consts::SQRT_2 - (SCREEN_ZOOM - 1.0);
 pub const TOTAL_ANGLES: usize = W_PIXELS * 6 * 2;
 
 // 点顺时针
@@ -87,7 +90,7 @@ lazy_static::lazy_static! {
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
         let l = SCREEN_OFFSET / std::f32::consts::SQRT_2;
         // let l = SCREEN_OFFSET;
-        let depth = 2f32;
+        let depth = 2f32 * SCREEN_ZOOM;
         let a:(f32, f32) = (0., l);
         let rad_rotate = std::f32::consts::PI / 9.;
         let rad_rotate:f32 = 0.;
@@ -243,12 +246,7 @@ fn cacl_view_point(
         .unwrap()
         .into();
     let z = pixel_to_h(pixel_z);
-    let v = glam::Vec4::new(
-        xy.x,
-        xy.y,
-        z + SCREEN_OFFSET / std::f32::consts::SQRT_2,
-        1.0,
-    );
+    let v = glam::Vec4::new(xy.x, xy.y, z + SCREEN_Z_OFFSET, 1.0);
     let led = v;
     let p_view = mat * v;
     ((p_view.x, p_view.y, p_view.z), (led.x, led.y, led.z))
@@ -319,12 +317,7 @@ impl Codec {
             .map(|screen| {
                 let start = screen.xy_line.start;
                 let end = screen.xy_line.end;
-                let p_o = glam::Vec4::new(
-                    start.x,
-                    start.y,
-                    SCREEN_OFFSET / std::f32::consts::SQRT_2,
-                    1.0,
-                );
+                let p_o = glam::Vec4::new(start.x, start.y, SCREEN_Z_OFFSET, 1.0);
                 // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
                 // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
 
@@ -393,9 +386,9 @@ impl Codec {
                         if dbg {
                             log::info!("i {i} j {j} p {p}");
                         }
-                        let pz = p.z - V_IMG_Z_TOP + 1.;
+                        let pz = p.z - V_IMG_Z_TOP + 1. * SCREEN_ZOOM;
                         let px = p.x;
-                        let py = p.y - V_IMG_Y_TOP + 1.;
+                        let py = p.y - V_IMG_Y_TOP + 1. * SCREEN_ZOOM;
                         let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };

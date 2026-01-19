@@ -3,6 +3,7 @@ use plotters::coord::ranged3d::ProjectionMatrix;
 use plotters::prelude::*;
 use plotters_canvas::CanvasBackend;
 use std::collections::BTreeMap;
+use vdrm_alg::{SCREEN_HEIGHT, SCREEN_Z_OFFSET};
 use web_sys::HtmlCanvasElement;
 
 static CTX: std::sync::Mutex<Option<Ctx>> = std::sync::Mutex::new(None);
@@ -70,10 +71,10 @@ impl Screen {
         let xy_line = vdrm_alg::screens()[idx].xy_line;
         let (a, b) = xy_line.points();
         let points = [
-            (a.x(), a.y(), 0.),
-            (a.x(), a.y(), 2.),
-            (b.x(), b.y(), 2.),
-            (b.x(), b.y(), 0.),
+            (a.x(), a.y(), SCREEN_Z_OFFSET),
+            (a.x(), a.y(), SCREEN_Z_OFFSET + SCREEN_HEIGHT),
+            (b.x(), b.y(), SCREEN_Z_OFFSET + SCREEN_HEIGHT),
+            (b.x(), b.y(), SCREEN_Z_OFFSET),
         ];
         Self { points }
     }
@@ -109,7 +110,7 @@ impl Ctx {
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y - 2. + vdrm_alg::MIRROR_OFFSET, z))
+            .map(|(x, y, z)| (x, y - 5., z - 5.))
             .collect();
         let optimze_speed_for_mbi5264 = false;
         let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);

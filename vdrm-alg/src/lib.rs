@@ -78,7 +78,7 @@ const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
 const V_IMG_Y_TOP: f32 = -2.;
 const V_IMG_Z_TOP: f32 = -3.;
 
-const VIRTUAL_IMG_CENTER: f32 = V_IMG_Y_TOP - 0.5;
+const VIRTUAL_IMG_CENTER: f32 = -4.;
 
 lazy_static::lazy_static! {
     static ref SCREENS:[Screen; 1]  = {
@@ -357,8 +357,8 @@ impl Codec {
                 // 过滤掉太远的角度 减小计算量
                 let closest_len = closest_len(&screen.xy_line, &center_xy);
                 // log::info!("angle {angle} closest_len {closest_len}");
-                if closest_len > 2f32.sqrt() {
-                    // continue;
+                if closest_len > (2f32 * SCREEN_ZOOM).sqrt() {
+                    continue;
                 }
 
                 let v_o = mat * glam::Vec4::new(0.0, 0.0, 0.0, 1.0);

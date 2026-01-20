@@ -4,11 +4,12 @@ use std::collections::BTreeMap;
 pub const W_PIXELS: usize = 64;
 pub const H_PIXELS: usize = 32;
 const CIRCLE_R: f32 = 1.;
-const SCREEN_ZOOM: f32 = 2.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
-pub const SCREEN_Z_OFFSET: f32 = 0.0;
-pub const SCREEN_Y_OFFSET: f32 = 1.0;
+// screem 位置和大小
+const SCREEN_ZOOM: f32 = 1.;
+pub const SCREEN_Z_OFFSET: f32 = -1.0;
+pub const SCREEN_Y_OFFSET: f32 = -1.0;
 // 六边形就x6 越大越清晰
 pub const TOTAL_ANGLES: usize = W_PIXELS * 6;
 
@@ -73,8 +74,8 @@ impl Default for ScreenLinePixels {
 }
 
 pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
-const MIRROR_OFFSET2: f32 = -std::f32::consts::SQRT_2;
-const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
+// const MIRROR_OFFSET2: f32 = -std::f32::consts::SQRT_2;
+// const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
 // const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET2 * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
 // const V_IMG_Y_TOP: f32 = -2.;
 // const V_IMG_Z_TOP: f32 = -3.;
@@ -105,7 +106,7 @@ lazy_static::lazy_static! {
         // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
         // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
         // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let l = SCREEN_OFFSET / std::f32::consts::SQRT_2;
+        let l = SCREEN_Y_OFFSET;
         // let l = SCREEN_OFFSET;
         let depth = 2f32 * SCREEN_ZOOM;
         let a:(f32, f32) = (0., l);

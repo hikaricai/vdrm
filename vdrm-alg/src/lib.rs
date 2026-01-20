@@ -1,5 +1,4 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
-use glam::Vec3A;
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
@@ -8,7 +7,8 @@ const CIRCLE_R: f32 = 1.;
 const SCREEN_ZOOM: f32 = 2.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
-pub const SCREEN_Z_OFFSET: f32 = SCREEN_OFFSET / std::f32::consts::SQRT_2 - (SCREEN_ZOOM - 1.0);
+pub const SCREEN_Z_OFFSET: f32 = 0.0;
+pub const SCREEN_Y_OFFSET: f32 = 1.0;
 // 六边形就x6 越大越清晰
 pub const TOTAL_ANGLES: usize = W_PIXELS * 6;
 
@@ -76,12 +76,27 @@ pub const MIRROR_OFFSET: f32 = std::f32::consts::SQRT_2;
 const MIRROR_OFFSET2: f32 = -std::f32::consts::SQRT_2;
 const SCREEN_OFFSET: f32 = std::f32::consts::SQRT_2;
 // const V_IMG_Y_TOP: f32 = (MIRROR_OFFSET2 * 2. - SCREEN_OFFSET) / std::f32::consts::SQRT_2;
-const V_IMG_Y_TOP: f32 = -2.;
-const V_IMG_Z_TOP: f32 = -3.;
+// const V_IMG_Y_TOP: f32 = -2.;
+// const V_IMG_Z_TOP: f32 = -3.;
 
-const VIRTUAL_IMG_CENTER: f32 = -4.;
+// const VIRTUAL_IMG_CENTER: f32 = -4.;
+
+fn cacul_v_img_cord() -> glam::Vec4 {
+    let angle = (90f32).to_radians();
+    let mat = mirror_mat4(angle);
+    let p = glam::Vec4::new(0.0, SCREEN_Y_OFFSET, SCREEN_Z_OFFSET, 1.0);
+    mat * p
+}
 
 lazy_static::lazy_static! {
+    pub static ref V_IMG_CORD: glam::Vec4 = {
+        cacul_v_img_cord()
+    };
+    pub static ref V_IMG_CENTER_CORD: glam::Vec4 = {
+        let center_y = V_IMG_CORD.y - SCREEN_ZOOM;
+        let center_z = V_IMG_CORD.z - 0.5 * SCREEN_ZOOM;
+        glam::Vec4::new(0.0, center_y, center_z, 1.0)
+    };
     static ref SCREENS:[Screen; 1]  = {
         // let u:(f32, f32) = (-2., 0.);
         // let v:(f32, f32) = (-1., -1.);
@@ -344,8 +359,7 @@ impl Codec {
             mat_map.insert(angle, mat);
 
             // 虚像的中心
-            let center = glam::Vec4::new(0.0, VIRTUAL_IMG_CENTER, VIRTUAL_IMG_CENTER, 1.0);
-            let center = mat * center;
+            let center = mat * *V_IMG_CENTER_CORD;
             // 虚像对应实际的和屏幕接触的中心
             let center_xy = geo::Point::new(center.x, center.y);
 
@@ -388,9 +402,9 @@ impl Codec {
                         if dbg {
                             log::info!("i {i} j {j} p {p}");
                         }
-                        let pz = p.z - V_IMG_Z_TOP + 1. * SCREEN_ZOOM;
+                        let pz = p.z - V_IMG_CORD.z + 1. * SCREEN_ZOOM;
                         let px = p.x;
-                        let py = p.y - V_IMG_Y_TOP + 1. * SCREEN_ZOOM;
+                        let py = p.y - V_IMG_CORD.y + 1. * SCREEN_ZOOM;
                         let Some((x, y, z)) = v3_2_pixel(px, py, pz) else {
                             continue;
                         };

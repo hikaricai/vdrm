@@ -1,8 +1,10 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
 use std::collections::BTreeMap;
 
-pub const W_PIXELS: usize = 64;
-pub const H_PIXELS: usize = 32;
+// pub const W_PIXELS: usize = 64;
+// pub const H_PIXELS: usize = 32;
+pub const W_PIXELS: usize = 192;
+pub const H_PIXELS: usize = 96;
 const CIRCLE_R: f32 = 1.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
@@ -10,8 +12,8 @@ const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 const SCREEN_ZOOM: f32 = 1.;
 pub const SCREEN_Z_OFFSET: f32 = -1.0;
 pub const SCREEN_Y_OFFSET: f32 = -1.0;
-// 六边形就x6 越大越清晰
-pub const TOTAL_ANGLES: usize = W_PIXELS * 6;
+// 八边形就x8 越大越清晰
+pub const TOTAL_ANGLES: usize = W_PIXELS * 8;
 
 // 点顺时针
 // 坐标系逆时针
@@ -109,9 +111,9 @@ lazy_static::lazy_static! {
         let l = SCREEN_Y_OFFSET;
         // let l = SCREEN_OFFSET;
         let depth = 2f32 * SCREEN_ZOOM;
-        let a:(f32, f32) = (0., l);
-        let rad_rotate = std::f32::consts::PI / 9.;
-        let rad_rotate:f32 = 0.;
+        let a:(f32, f32) = (-0.2, l);
+        let rad_rotate = std::f32::consts::PI / 8.;
+        // let rad_rotate:f32 = 0.;
         // let rad_off = 0f32;
         // let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());

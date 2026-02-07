@@ -100,7 +100,7 @@ struct Ctx {
     all_real_pixels: Vec<(f32, f32, f32)>,
     all_emu_pixels: Vec<(f32, f32, f32)>,
     all_led_pixels: Vec<(f32, f32, f32)>,
-    screens: [Screen; 1],
+    screens: [Screen; vdrm_alg::NUM_SCREENS],
     param: CtxParam,
 }
 
@@ -148,13 +148,14 @@ impl Ctx {
                 (angle, angle_ctx)
             })
             .collect();
+        let screens: [usize; vdrm_alg::NUM_SCREENS] = std::array::from_fn(|i| i);
 
         Self {
             angle_ctx_map,
             all_real_pixels,
             all_emu_pixels,
             all_led_pixels,
-            screens: [0].map(|idx| Screen::new(idx)),
+            screens: screens.map(|idx| Screen::new(idx)),
             param,
         }
     }
@@ -249,6 +250,18 @@ pub fn draw(
         .legend(|(x, y)| {
             Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.9).filled())
         });
+    if let Some(angle) = angle {
+        let v_screens = ctx.screens.iter().map(|v| {
+            let v_points = vdrm_alg::mirror_points(angle, &v.points);
+            Polygon::new(v_points, BLACK.mix(0.8))
+        });
+        chart
+            .draw_series(v_screens)?
+            .label("V_SCREEN")
+            .legend(|(x, y)| {
+                Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.1).filled())
+            });
+    };
     let real_surface_points: PointSeries<_, _, Circle<_, _>, _> =
         PointSeries::new(ctx.all_real_pixels.clone(), 1_f64, &BLUE.mix(0.2));
     chart

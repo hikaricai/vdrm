@@ -1,10 +1,11 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
+use glam::Vec4Swizzles;
 use std::collections::BTreeMap;
 
-// pub const W_PIXELS: usize = 64;
-// pub const H_PIXELS: usize = 32;
-pub const W_PIXELS: usize = 192;
-pub const H_PIXELS: usize = 96;
+pub const W_PIXELS: usize = 64;
+pub const H_PIXELS: usize = 32;
+// pub const W_PIXELS: usize = 192;
+// pub const H_PIXELS: usize = 96;
 const CIRCLE_R: f32 = 1.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
@@ -91,6 +92,8 @@ fn cacul_v_img_cord() -> glam::Vec4 {
     mat * p
 }
 
+pub const NUM_SCREENS: usize = 3;
+
 lazy_static::lazy_static! {
     pub static ref V_IMG_CORD: glam::Vec4 = {
         cacul_v_img_cord()
@@ -100,7 +103,7 @@ lazy_static::lazy_static! {
         let center_z = V_IMG_CORD.z - 0.5 * SCREEN_ZOOM;
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
-    static ref SCREENS:[Screen; 1]  = {
+    static ref SCREENS:[Screen; NUM_SCREENS]  = {
         // let u:(f32, f32) = (-2., 0.);
         // let v:(f32, f32) = (-1., -1.);
         // let w:(f32, f32) = (1., -1.);
@@ -111,9 +114,9 @@ lazy_static::lazy_static! {
         let l = SCREEN_Y_OFFSET;
         // let l = SCREEN_OFFSET;
         let depth = 2f32 * SCREEN_ZOOM;
-        let a:(f32, f32) = (-0.2, l);
-        let rad_rotate = std::f32::consts::PI / 8.;
-        // let rad_rotate:f32 = 0.;
+        let a:(f32, f32) = (-0.0, SCREEN_Y_OFFSET);
+        // let rad_rotate = std::f32::consts::PI / 8.;
+        let rad_rotate:f32 = 0.;
         // let rad_off = 0f32;
         // let rad = 0f32;
         // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
@@ -125,19 +128,21 @@ lazy_static::lazy_static! {
         // let a = (a.0 + x_offset, a.1 + y_offset);
         // let b = (b.0 + x_offset, b.1 + y_offset);
 
-        let rad = std::f32::consts::FRAC_PI_8 / 2.;
-        let rad_off = -rad / 4f32;
-        // let rad_off = 0f32;
+        let rad = std::f32::consts::FRAC_PI_4;
+        // let rad_off = -rad / 4f32;
+        let rad_off = 0f32;
         let rad_l = -rad - rad_off;
         let rad_r = rad - rad_off;
-        let c = (l * rad_l.sin(), l * rad_l.cos());
-        let e = (l * rad_r.sin(), l * rad_r.cos());
+        // let c = (l * rad_l.sin(), l * rad_l.cos());
+        // let e = (l * rad_r.sin(), l * rad_r.cos());
+        let c = (-0.0, SCREEN_Y_OFFSET);
+        let e = (-0.0, SCREEN_Y_OFFSET);
         // let d = (-l1 * rad.sin(), l1 * rad.cos());
         let d = (c.0 + depth * (rad_l + rad_rotate).sin(), c.1 + depth * (rad_l + rad_rotate).cos());
         // let f = (l1 * rad.sin(), l1 * rad.cos());
         let f = (e.0 + depth * (rad_r + rad_rotate).sin(), e.1 + depth * (rad_r + rad_rotate).cos());
-        // [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
-        [Screen::new([a, b])]
+        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
+        // [Screen::new([a, b])]
     };
 }
 
@@ -166,7 +171,7 @@ pub struct ScreenLine {
     pub pixels: [Option<PixelColor>; W_PIXELS],
 }
 
-pub type AngleMap = BTreeMap<u32, [Vec<ScreenLine>; 3]>;
+pub type AngleMap = BTreeMap<u32, [Vec<ScreenLine>; NUM_SCREENS]>;
 
 type PixelZInfoList = [Option<PixelZInfo>; H_PIXELS];
 type PixelXYArr = Vec<Vec<PixelZInfoList>>;
@@ -283,7 +288,7 @@ fn closest_len(line: &geo::Line<f32>, p: &geo::Point<f32>) -> f32 {
 
 fn mirror_mat4(angle_f: f32) -> glam::Mat4 {
     let sin = -angle_f.sin();
-    let cos = angle_f.cos();
+    let cos = -angle_f.cos();
     let sin2 = sin * sin;
     let cos2 = cos * cos;
     let sin_cos = sin * cos;
@@ -310,8 +315,21 @@ fn mirror_mat4(angle_f: f32) -> glam::Mat4 {
     mat
 }
 
+pub fn mirror_points(angle: u32, points: &[(f32, f32, f32)]) -> Vec<(f32, f32, f32)> {
+    let angle_f = angle_to_v(angle);
+    let mat = mirror_mat4(angle_f);
+    points
+        .iter()
+        .map(|v| {
+            let v = glam::Vec4::new(v.0, v.1, v.2, 1.0);
+            let v = mat * v;
+            (v.x, v.y, v.z)
+        })
+        .collect()
+}
+
 pub struct Codec {
-    xy_arrs: [PixelXYArr; 1],
+    xy_arrs: [PixelXYArr; NUM_SCREENS],
     mat_map: BTreeMap<u32, glam::Mat4>,
 }
 
@@ -319,7 +337,7 @@ impl Codec {
     // TODO map screens to image and fill tthe xy_arr
     pub fn new(angle_range: std::ops::Range<usize>) -> Self {
         // 初始化坐标map key是xyz虚像自己的相对坐标
-        let mut xy_arrs = [PixelXYArr::new()];
+        let mut xy_arrs = [PixelXYArr::new(), PixelXYArr::new(), PixelXYArr::new()];
         for _x in 0..W_PIXELS {
             let mut line = vec![];
             line.extend(
@@ -328,8 +346,8 @@ impl Codec {
                     .map(|_| [None; H_PIXELS]),
             );
             xy_arrs[0].push(line.clone());
-            // xy_arrs[1].push(line.clone());
-            // xy_arrs[2].push(line);
+            xy_arrs[1].push(line.clone());
+            xy_arrs[2].push(line);
         }
         let mut mat_map = BTreeMap::new();
         let screen_metas: Vec<_> = SCREENS
@@ -487,8 +505,10 @@ impl Codec {
         pixel_offset: i32,
         optimze_speed_for_mbi5264: bool,
     ) -> AngleMap {
-        let mut angle_map: BTreeMap<u32, [BTreeMap<ScreenLineAddr, ScreenLinePixels>; 3]> =
-            BTreeMap::new();
+        let mut angle_map: BTreeMap<
+            u32,
+            [BTreeMap<ScreenLineAddr, ScreenLinePixels>; NUM_SCREENS],
+        > = BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
             for screen_idx in 0..1usize {
                 let z_info_list = &self.xy_arrs[screen_idx][x as usize][y as usize];

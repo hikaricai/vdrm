@@ -513,7 +513,7 @@ impl Codec {
             [BTreeMap<ScreenLineAddr, ScreenLinePixels>; NUM_SCREENS],
         > = BTreeMap::new();
         for &(x, y, (z, color)) in pixel_surface {
-            for screen_idx in 0..1usize {
+            for screen_idx in 0..NUM_SCREENS {
                 let z_info_list = &self.xy_arrs[screen_idx][x as usize][y as usize];
                 // fix z offset
                 // TODO find the reason for offset

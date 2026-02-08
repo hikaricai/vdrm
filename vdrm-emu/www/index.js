@@ -28,7 +28,7 @@ export function setup(WasmChart) {
 /** Add event listeners. */
 function setupUI() {
   showall.addEventListener("change", updatePlot);
-  screen_check.addEventListener("mouseup", updatePlot);
+  screen_check.addEventListener("change", updatePlot);
   angle.addEventListener("change", updatePlot);
   angle.addEventListener("input", updatePlot);
   yaw.addEventListener("change", updatePlot);
@@ -82,10 +82,10 @@ function updatePlot3d() {
   var enb_screens = [];
   let angle_opt = showall.checked ? null : angle_value;
   for (var i = 0; i < screen_check.children.length; i++) {
-      var childElement = screen_check.children[i];
-      if (childElement.checked) {
-        enb_screens.push(i);
-      }
+    var childElement = screen_check.children[i];
+    if (childElement.checked) {
+      enb_screens.push(i);
+    }
   }
   Chart.plot3d(
     canvas,

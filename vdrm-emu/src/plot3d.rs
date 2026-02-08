@@ -67,15 +67,7 @@ struct Screen {
 
 impl Screen {
     fn new(idx: usize) -> Self {
-        let xy_line = vdrm_alg::screens()[idx].xy_line;
-        let (a, b) = xy_line.points();
-        let screen_top = vdrm_alg::SCREEN_Z_OFFSET + vdrm_alg::SCREEN_HEIGHT;
-        let points = [
-            (a.x(), a.y(), vdrm_alg::SCREEN_Z_OFFSET),
-            (a.x(), a.y(), screen_top),
-            (b.x(), b.y(), screen_top),
-            (b.x(), b.y(), vdrm_alg::SCREEN_Z_OFFSET),
-        ];
+        let points = vdrm_alg::screens()[idx].points;
         Self { points }
     }
 

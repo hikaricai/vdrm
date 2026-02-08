@@ -1,5 +1,4 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
-use glam::Vec4Swizzles;
 use std::collections::BTreeMap;
 
 pub const W_PIXELS: usize = 64;
@@ -104,44 +103,27 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
-        // let u:(f32, f32) = (-2., 0.);
-        // let v:(f32, f32) = (-1., -1.);
-        // let w:(f32, f32) = (1., -1.);
-        // let x:(f32, f32) = (1. + 0.5_f32.sqrt(), 1. - 0.5_f32.sqrt());
-        // let y:(f32, f32) = (1. - 0.5_f32.sqrt(), 1. + 0.5_f32.sqrt());
-        // let z:(f32, f32) = (-1., 3.0_f32.sqrt());
-        // [Screen::new([v, w]), Screen::new([x, y]), Screen::new([z, u])]
-        let l = SCREEN_Y_OFFSET;
-        // let l = SCREEN_OFFSET;
         let depth = 2f32 * SCREEN_ZOOM;
         let a:(f32, f32) = (-0.0, SCREEN_Y_OFFSET);
         // let rad_rotate = std::f32::consts::PI / 8.;
         let rad_rotate:f32 = 0.;
-        // let rad_off = 0f32;
-        // let rad = 0f32;
-        // let b:(f32, f32) = (0. - 1., 1. + 3f32.sqrt());
-        // let b:(f32, f32) = (0. + 1., 1. + 3f32.sqrt());
-        let b:(f32, f32) = (a.0 + depth * rad_rotate.sin(), a.1 + depth * rad_rotate.cos());
-        // let x_offset = (-b.0 / 4.0);
-        // let offset_rad = (x_offset / l).asin();
-        // let y_offset = offset_rad.cos() * l - l;
-        // let a = (a.0 + x_offset, a.1 + y_offset);
-        // let b = (b.0 + x_offset, b.1 + y_offset);
 
-        let rad = std::f32::consts::FRAC_PI_4;
-        // let rad_off = -rad / 4f32;
-        let rad_off = 0f32;
-        let rad_l = -rad - rad_off;
-        let rad_r = rad - rad_off;
-        // let c = (l * rad_l.sin(), l * rad_l.cos());
-        // let e = (l * rad_r.sin(), l * rad_r.cos());
-        let c = (-0.0, SCREEN_Y_OFFSET);
-        let e = (-0.0, SCREEN_Y_OFFSET);
-        // let d = (-l1 * rad.sin(), l1 * rad.cos());
-        let d = (c.0 + depth * (rad_l + rad_rotate).sin(), c.1 + depth * (rad_l + rad_rotate).cos());
-        // let f = (l1 * rad.sin(), l1 * rad.cos());
-        let f = (e.0 + depth * (rad_r + rad_rotate).sin(), e.1 + depth * (rad_r + rad_rotate).cos());
-        [Screen::new([a, b]), Screen::new([c, d]), Screen::new([e, f])]
+        let b:(f32, f32) = (a.0 + depth * rad_rotate.sin(), a.1 + depth * rad_rotate.cos());
+        let screen = Screen::new([a, b]);
+        let angle_off = 360.0f32 / 8.0 / 2.0;
+        let angle_l = 90f32 - angle_off;
+        let angle_r = 90f32 + angle_off;
+        let v_screen = mirror_points_f(90f32.to_radians(), &screen.points);
+        let screen_l = mirror_points_f(angle_l.to_radians(), &v_screen);
+        let screen_r = mirror_points_f(angle_r.to_radians(), &v_screen);
+
+        // let v_screen_l = mirror_points_f(angle_l.to_radians(), &screen.points);
+        // let v_screen_r = mirror_points_f(angle_r.to_radians(), &screen.points);
+        // let screen_l = mirror_points_f(90f32.to_radians(), &v_screen_l);
+        // let screen_r = mirror_points_f(90f32.to_radians(), &v_screen_r);
+        let screen_l = Screen { points: screen_l.try_into().unwrap() };
+        let screen_r = Screen { points: screen_r.try_into().unwrap() };
+        [Screen::new([a, b]), screen_l, screen_r]
         // [Screen::new([a, b])]
     };
 }
@@ -178,13 +160,21 @@ type PixelXYArr = Vec<Vec<PixelZInfoList>>;
 
 #[derive(Copy, Clone)]
 pub struct Screen {
-    pub xy_line: geo::Line<f32>,
+    pub points: [(f32, f32, f32); 4],
 }
 
 impl Screen {
     fn new(xy: [(f32, f32); 2]) -> Self {
         let xy_line = geo::Line::new(xy[0], xy[1]);
-        Self { xy_line }
+        let (a, b) = xy_line.points();
+        let screen_top = SCREEN_Z_OFFSET + SCREEN_HEIGHT;
+        let points = [
+            (a.x(), a.y(), SCREEN_Z_OFFSET),
+            (a.x(), a.y(), screen_top),
+            (b.x(), b.y(), screen_top),
+            (b.x(), b.y(), SCREEN_Z_OFFSET),
+        ];
+        Self { points }
     }
 }
 
@@ -265,13 +255,15 @@ fn cacl_view_point(
 ) -> ((f32, f32, f32), (f32, f32, f32)) {
     let screen = &SCREENS[screen_idx];
     let fraction = addr as f32 / W_PIXELS as f32;
-    let xy: geo::Coord<_> = screen
-        .xy_line
-        .line_interpolate_point(fraction)
-        .unwrap()
-        .into();
-    let z = pixel_to_h(pixel_z);
-    let v = glam::Vec4::new(xy.x, xy.y, z + SCREEN_Z_OFFSET, 1.0);
+    let fraction_z = pixel_z as f32 / H_PIXELS as f32;
+    let p_o = glam::Vec3::from(screen.points[0]);
+    let p_z = glam::Vec3::from(screen.points[1]);
+    let p_y = glam::Vec3::from(screen.points[3]);
+    let v_oz = p_z - p_o;
+    let v_oy = p_y - p_o;
+    let p_xy = p_o + v_oy * fraction + v_oz * fraction_z;
+
+    let v = glam::Vec4::new(p_xy.x, p_xy.y, p_xy.z, 1.0);
     let led = v;
     let p_view = mat * v;
     ((p_view.x, p_view.y, p_view.z), (led.x, led.y, led.z))
@@ -315,8 +307,7 @@ fn mirror_mat4(angle_f: f32) -> glam::Mat4 {
     mat
 }
 
-pub fn mirror_points(angle: u32, points: &[(f32, f32, f32)]) -> Vec<(f32, f32, f32)> {
-    let angle_f = angle_to_v(angle);
+fn mirror_points_f(angle_f: f32, points: &[(f32, f32, f32)]) -> Vec<(f32, f32, f32)> {
     let mat = mirror_mat4(angle_f);
     points
         .iter()
@@ -326,6 +317,11 @@ pub fn mirror_points(angle: u32, points: &[(f32, f32, f32)]) -> Vec<(f32, f32, f
             (v.x, v.y, v.z)
         })
         .collect()
+}
+
+pub fn mirror_points(angle: u32, points: &[(f32, f32, f32)]) -> Vec<(f32, f32, f32)> {
+    let angle_f = angle_to_v(angle);
+    mirror_points_f(angle_f, points)
 }
 
 pub struct Codec {
@@ -353,22 +349,19 @@ impl Codec {
         let screen_metas: Vec<_> = SCREENS
             .iter()
             .map(|screen| {
-                let start = screen.xy_line.start;
-                let end = screen.xy_line.end;
-                let p_o = glam::Vec4::new(start.x, start.y, SCREEN_Z_OFFSET, 1.0);
-                // let p_a = glam::Vec3A::new(start.x, start.y, 1.);
-                // let p_b = glam::Vec3A::new(end.x, end.y, -1.);
+                let fraction = 1f32 / W_PIXELS as f32;
+                let fraction_z = 1f32 / H_PIXELS as f32;
+                let p_o = glam::Vec3::from(screen.points[0]);
+                let p_z = glam::Vec3::from(screen.points[1]);
+                let p_y = glam::Vec3::from(screen.points[3]);
+                let v_oz = p_z - p_o;
+                let v_oy = p_y - p_o;
+                let v_oa = v_oz * fraction_z;
+                let v_ob = v_oy * fraction;
 
-                // let p_z = p_o + glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
-                // let p_y = p_o + glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
-                // log::info!("p_o {p_o:?} p_y {p_y:?} p_z {p_z:?}");
-                let v_oa = glam::Vec4::new(0., 0., POINT_SIZE, 1.0);
-                let v_ob = geo::Line::new(start, end);
-                let v_ob = v_ob
-                    .line_interpolate_point(POINT_SIZE / v_ob.euclidean_length())
-                    .unwrap()
-                    - start.into();
-                let v_ob = glam::Vec4::new(v_ob.x(), v_ob.y(), 0., 1.0);
+                let p_o = glam::Vec4::new(p_o.x, p_o.y, p_o.z, 1.0);
+                let v_oa = glam::Vec4::new(v_oa.x, v_oa.y, v_oa.z, 1.0);
+                let v_ob = glam::Vec4::new(v_ob.x, v_ob.y, v_ob.z, 1.0);
                 log::info!("p_o {p_o:?} v_oa {v_oa:?} v_ob {v_ob:?}");
                 (screen, p_o, v_oa, v_ob)
             })
@@ -391,7 +384,11 @@ impl Codec {
                 screen_metas.clone().into_iter().enumerate()
             {
                 // 过滤掉太远的角度 减小计算量
-                let closest_len = closest_len(&screen.xy_line, &center_xy);
+                let xy_line = geo::Line::new(
+                    (screen.points[0].0, screen.points[0].1),
+                    (screen.points[3].0, screen.points[3].1),
+                );
+                let closest_len = closest_len(&xy_line, &center_xy);
                 // log::info!("angle {angle} closest_len {closest_len}");
                 if closest_len > (2f32 * SCREEN_ZOOM).sqrt() {
                     continue;

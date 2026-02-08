@@ -10,8 +10,9 @@ pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 // screem 位置和大小
 const SCREEN_ZOOM: f32 = 1.;
-pub const SCREEN_Z_OFFSET: f32 = -1.0;
-pub const SCREEN_Y_OFFSET: f32 = -1.0;
+pub const SCREEN_OFFSET: f32 = 0.5;
+pub const SCREEN_Z_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
+pub const SCREEN_Y_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 // 八边形就x8 越大越清晰
 pub const TOTAL_ANGLES: usize = W_PIXELS * 8;
 
@@ -103,13 +104,18 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
+        // let offset = 0.5f32;
+        // let offset = 0f32;
+        let z = SCREEN_Z_OFFSET;
+
         let depth = 2f32 * SCREEN_ZOOM;
         let a:(f32, f32) = (-0.0, SCREEN_Y_OFFSET);
         // let rad_rotate = std::f32::consts::PI / 8.;
         let rad_rotate:f32 = 0.;
 
         let b:(f32, f32) = (a.0 + depth * rad_rotate.sin(), a.1 + depth * rad_rotate.cos());
-        let screen = Screen::new([a, b]);
+
+        let screen = Screen::new([a, b], z);
         let angle_off = 360.0f32 / 8.0 / 2.0;
         let angle_l = 90f32 - angle_off;
         let angle_r = 90f32 + angle_off;
@@ -123,7 +129,7 @@ lazy_static::lazy_static! {
         // let screen_r = mirror_points_f(90f32.to_radians(), &v_screen_r);
         let screen_l = Screen { points: screen_l.try_into().unwrap() };
         let screen_r = Screen { points: screen_r.try_into().unwrap() };
-        [Screen::new([a, b]), screen_l, screen_r]
+        [screen, screen_l, screen_r]
         // [Screen::new([a, b])]
     };
 }
@@ -164,15 +170,15 @@ pub struct Screen {
 }
 
 impl Screen {
-    fn new(xy: [(f32, f32); 2]) -> Self {
+    fn new(xy: [(f32, f32); 2], z: f32) -> Self {
         let xy_line = geo::Line::new(xy[0], xy[1]);
         let (a, b) = xy_line.points();
-        let screen_top = SCREEN_Z_OFFSET + SCREEN_HEIGHT;
+        let screen_top = z + SCREEN_HEIGHT;
         let points = [
-            (a.x(), a.y(), SCREEN_Z_OFFSET),
+            (a.x(), a.y(), z),
             (a.x(), a.y(), screen_top),
             (b.x(), b.y(), screen_top),
-            (b.x(), b.y(), SCREEN_Z_OFFSET),
+            (b.x(), b.y(), z),
         ];
         Self { points }
     }

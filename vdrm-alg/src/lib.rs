@@ -110,8 +110,8 @@ lazy_static::lazy_static! {
 
         let depth = 2f32 * SCREEN_ZOOM;
         let a:(f32, f32) = (-0.0, SCREEN_Y_OFFSET);
-        // let rad_rotate = std::f32::consts::PI / 8.;
-        let rad_rotate:f32 = 0.;
+        let rad_rotate = std::f32::consts::PI / 8.;
+        // let rad_rotate:f32 = 0.;
 
         let b:(f32, f32) = (a.0 + depth * rad_rotate.sin(), a.1 + depth * rad_rotate.cos());
 

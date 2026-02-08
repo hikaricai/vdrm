@@ -56,7 +56,7 @@ impl Display for AngleImage {
     }
 }
 
-fn main() {
+fn dbg_codec() {
     let codec = vdrm_alg::Codec::new(0..400);
     let pyramid = gen_pyramid_surface();
     let map = codec.encode(&pyramid, 0, true);
@@ -109,4 +109,19 @@ fn main() {
             angle_list.len() * std::mem::size_of::<AngleImage>(),
         )
     };
+}
+
+fn dbg_screens() {
+    let screens = vdrm_alg::screens_with_rotate(0f32);
+    for (idx, s) in screens.iter().enumerate() {
+        for p in [s.points[0], s.points[3]] {
+            let yz = vdrm_alg::rotate_x((p.1, p.2));
+            let p = (p.0, yz.0, yz.1);
+            println!("screen {idx} {p:?}");
+        }
+    }
+}
+
+fn main() {
+    dbg_screens();
 }

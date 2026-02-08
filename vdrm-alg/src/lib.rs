@@ -40,16 +40,16 @@ const MAT_ROTATE_X_REV: glam::Mat2 = glam::Mat2::from_cols(
     ),
 );
 
-pub fn rotate_x(v: glam::Vec3A) -> glam::Vec3A {
-    let v2 = glam::Vec2::new(v.y, v.z);
-    let v2 = MAT_ROTATE_X * v2;
-    glam::Vec3A::new(v.x, v2.x, v2.y)
+pub fn rotate_x(v: (f32, f32)) -> (f32, f32) {
+    let v = glam::Vec2::new(v.0, v.1);
+    let v = MAT_ROTATE_X * v;
+    (v.x, v.y)
 }
 
-pub fn rotate_x_rev(v: glam::Vec3A) -> glam::Vec3A {
-    let v2 = glam::Vec2::new(v.y, v.z);
-    let v2 = MAT_ROTATE_X_REV * v2;
-    glam::Vec3A::new(v.x, v2.x, v2.y)
+pub fn rotate_x_rev(v: (f32, f32)) -> (f32, f32) {
+    let v = glam::Vec2::new(v.0, v.1);
+    let v = MAT_ROTATE_X_REV * v;
+    (v.x, v.y)
 }
 
 // pub const TOTAL_ANGLES: usize = 360;
@@ -104,34 +104,36 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
-        // let offset = 0.5f32;
-        // let offset = 0f32;
-        let z = SCREEN_Z_OFFSET;
-
-        let depth = 2f32 * SCREEN_ZOOM;
-        let a:(f32, f32) = (-0.0, SCREEN_Y_OFFSET);
-        let rad_rotate = std::f32::consts::PI / 8.;
-        // let rad_rotate:f32 = 0.;
-
-        let b:(f32, f32) = (a.0 + depth * rad_rotate.sin(), a.1 + depth * rad_rotate.cos());
-
-        let screen = Screen::new([a, b], z);
-        let angle_off = 360.0f32 / 8.0 / 2.0;
-        let angle_l = 90f32 - angle_off;
-        let angle_r = 90f32 + angle_off;
-        let v_screen = mirror_points_f(90f32.to_radians(), &screen.points);
-        let screen_l = mirror_points_f(angle_l.to_radians(), &v_screen);
-        let screen_r = mirror_points_f(angle_r.to_radians(), &v_screen);
-
-        // let v_screen_l = mirror_points_f(angle_l.to_radians(), &screen.points);
-        // let v_screen_r = mirror_points_f(angle_r.to_radians(), &screen.points);
-        // let screen_l = mirror_points_f(90f32.to_radians(), &v_screen_l);
-        // let screen_r = mirror_points_f(90f32.to_radians(), &v_screen_r);
-        let screen_l = Screen { points: screen_l.try_into().unwrap() };
-        let screen_r = Screen { points: screen_r.try_into().unwrap() };
-        [screen, screen_l, screen_r]
-        // [Screen::new([a, b])]
+        screens_with_rotate(std::f32::consts::PI / 8.)
     };
+}
+
+pub fn screens_with_rotate(rad_rotate: f32) -> [Screen; NUM_SCREENS] {
+    let z = SCREEN_Z_OFFSET;
+
+    let depth = 2f32 * SCREEN_ZOOM;
+    let a: (f32, f32) = (-0.0, SCREEN_Y_OFFSET);
+
+    let b: (f32, f32) = (
+        a.0 + depth * rad_rotate.sin(),
+        a.1 + depth * rad_rotate.cos(),
+    );
+
+    let screen = Screen::new([a, b], z);
+    let angle_off = 360.0f32 / 8.0 / 2.0;
+    let angle_l = 90f32 - angle_off;
+    let angle_r = 90f32 + angle_off;
+    let v_screen = mirror_points_f(90f32.to_radians(), &screen.points);
+    let screen_l = mirror_points_f(angle_l.to_radians(), &v_screen);
+    let screen_r = mirror_points_f(angle_r.to_radians(), &v_screen);
+
+    let screen_l = Screen {
+        points: screen_l.try_into().unwrap(),
+    };
+    let screen_r = Screen {
+        points: screen_r.try_into().unwrap(),
+    };
+    [screen, screen_l, screen_r]
 }
 
 pub fn screens() -> &'static [Screen] {

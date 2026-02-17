@@ -113,10 +113,11 @@ fn dbg_codec() {
 
 fn dbg_screens() {
     let screens = vdrm_alg::screens_with_rotate(0f32);
+    let unit = 75f32;
     for (idx, s) in screens.iter().enumerate() {
         for p in [s.points[0], s.points[3]] {
             let yz = vdrm_alg::rotate_x((p.1, p.2));
-            let p = (p.0, yz.0, yz.1);
+            let p = glam::Vec3::new(p.0, yz.0, yz.1) * unit;
             println!("screen {idx} {p:?}");
         }
     }

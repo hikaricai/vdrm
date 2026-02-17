@@ -10,6 +10,7 @@ pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 // screem 位置和大小
 const SCREEN_ZOOM: f32 = 1.;
+// 修改这个值 越大成像越远 屏幕间距越大
 pub const SCREEN_OFFSET: f32 = 0.5;
 pub const SCREEN_Z_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 pub const SCREEN_Y_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
@@ -105,6 +106,7 @@ lazy_static::lazy_static! {
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
         screens_with_rotate(std::f32::consts::PI / 8.)
+        // screens_with_rotate(0.)
     };
 }
 
@@ -120,7 +122,7 @@ pub fn screens_with_rotate(rad_rotate: f32) -> [Screen; NUM_SCREENS] {
     );
 
     let screen = Screen::new([a, b], z);
-    let angle_off = 360.0f32 / 8.0 / 2.0;
+    let angle_off = 360.0f32 / 8.0 / 2.0 / 2.0;
     let angle_l = 90f32 - angle_off;
     let angle_r = 90f32 + angle_off;
     let v_screen = mirror_points_f(90f32.to_radians(), &screen.points);

@@ -235,7 +235,11 @@ pub fn draw(
             }),
         )
         .unwrap();
-    let screen_polygons = ctx.screens.iter().map(|v| v.polygon());
+    let screen_polygons = ctx
+        .screens
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, v)| ctx.param.enb_screens.contains(&idx).then(|| v.polygon()));
     chart
         .draw_series(screen_polygons)?
         .label("SCREEN")
@@ -243,9 +247,11 @@ pub fn draw(
             Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.9).filled())
         });
     if let Some(angle) = angle {
-        let v_screens = ctx.screens.iter().map(|v| {
-            let v_points = vdrm_alg::mirror_points(angle, &v.points);
-            Polygon::new(v_points, BLACK.mix(0.8))
+        let v_screens = ctx.screens.iter().enumerate().filter_map(|(idx, v)| {
+            ctx.param.enb_screens.contains(&idx).then(|| {
+                let v_points = vdrm_alg::mirror_points(angle, &v.points);
+                Polygon::new(v_points, BLACK.mix(0.8))
+            })
         });
         chart
             .draw_series(v_screens)?

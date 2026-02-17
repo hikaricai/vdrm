@@ -265,7 +265,7 @@ fn cacl_view_point(
 ) -> ((f32, f32, f32), (f32, f32, f32)) {
     let screen = &SCREENS[screen_idx];
     let fraction = addr as f32 / W_PIXELS as f32;
-    let fraction_z = pixel_z as f32 / H_PIXELS as f32;
+    let fraction_z = pixel_z as f32 / W_PIXELS as f32;
     let p_o = glam::Vec3::from(screen.points[0]);
     let p_z = glam::Vec3::from(screen.points[1]);
     let p_y = glam::Vec3::from(screen.points[3]);
@@ -360,7 +360,7 @@ impl Codec {
             .iter()
             .map(|screen| {
                 let fraction = 1f32 / W_PIXELS as f32;
-                let fraction_z = 1f32 / H_PIXELS as f32;
+                let fraction_z = 1f32 / W_PIXELS as f32;
                 let p_o = glam::Vec3::from(screen.points[0]);
                 let p_z = glam::Vec3::from(screen.points[1]);
                 let p_y = glam::Vec3::from(screen.points[3]);

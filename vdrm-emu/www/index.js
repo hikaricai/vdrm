@@ -8,8 +8,6 @@ const showall = document.getElementById("showall");
 const angle = document.getElementById("angle");
 const pitch = document.getElementById("pitch");
 const yaw = document.getElementById("yaw");
-const min_angle = document.getElementById("min_angle");
-const max_angle = document.getElementById("max_angle");
 const screen_check = document.getElementById("screen_check");
 
 let chart = null;
@@ -35,10 +33,6 @@ function setupUI() {
   yaw.addEventListener("input", updatePlot);
   pitch.addEventListener("change", updatePlot);
   pitch.addEventListener("input", updatePlot);
-  min_angle.addEventListener("change", updatePlot);
-  min_angle.addEventListener("input", updatePlot);
-  max_angle.addEventListener("change", updatePlot);
-  max_angle.addEventListener("input", updatePlot);
   window.addEventListener("resize", setupCanvas);
   window.addEventListener("mousemove", onMouseMove);
 }
@@ -76,8 +70,6 @@ function updatePlot3d() {
   let angle_value = Number(angle.value);
   let yaw_value = Number(yaw.value) / 100.0;
   let pitch_value = Number(pitch.value) / 100.0;
-  let min_angle_value = Number(min_angle.value);
-  let max_angle_value = Number(max_angle.value);
   const start = performance.now();
   var enb_screens = [];
   let angle_opt = showall.checked ? null : angle_value;
@@ -87,17 +79,9 @@ function updatePlot3d() {
       enb_screens.push(i);
     }
   }
-  Chart.plot3d(
-    canvas,
-    angle_opt,
-    pitch_value,
-    yaw_value,
-    min_angle_value,
-    max_angle_value,
-    enb_screens,
-  );
+  Chart.plot3d(canvas, angle_opt, pitch_value, yaw_value, enb_screens);
   const end = performance.now();
-  coord.innerText = `angle: ${angle_value} in (${min_angle_value}..${max_angle_value}) Pitch:${pitch_value}, Yaw:${yaw_value} Rendered in ${Math.ceil(end - start)}ms`;
+  coord.innerText = `angle: ${angle_value} Pitch:${pitch_value}, Yaw:${yaw_value} Rendered in ${Math.ceil(end - start)}ms`;
 }
 
 /** Redraw currently selected plot. */

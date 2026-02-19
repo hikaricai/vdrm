@@ -11,7 +11,7 @@ const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 // screem 位置和大小
 const SCREEN_ZOOM: f32 = 1.;
 // 修改这个值 越大成像越远 屏幕间距越大
-pub const SCREEN_OFFSET: f32 = 0.5;
+pub const SCREEN_OFFSET: f32 = 0.25;
 pub const SCREEN_Z_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 pub const SCREEN_Y_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 // 八边形就x8 越大越清晰
@@ -135,7 +135,7 @@ pub fn screens_with_rotate(rad_rotate: f32) -> [Screen; NUM_SCREENS] {
     let screen_r = Screen {
         points: screen_r.try_into().unwrap(),
     };
-    [screen, screen_l, screen_r]
+    [screen_l, screen, screen_r]
 }
 
 pub fn screens() -> &'static [Screen] {
@@ -341,7 +341,7 @@ pub struct Codec {
 
 impl Codec {
     // TODO map screens to image and fill tthe xy_arr
-    pub fn new(angle_range: std::ops::Range<usize>) -> Self {
+    pub fn new() -> Self {
         // 初始化坐标map key是xyz虚像自己的相对坐标
         let mut xy_arrs = [PixelXYArr::new(), PixelXYArr::new(), PixelXYArr::new()];
         for _x in 0..W_PIXELS {

@@ -57,9 +57,9 @@ impl Display for AngleImage {
 }
 
 fn dbg_codec() {
-    let codec = vdrm_alg::Codec::new(0..400);
+    let codec = vdrm_alg::Codec::new();
     let pyramid = gen_pyramid_surface();
-    let map = codec.encode(&pyramid, 0, true);
+    let map = codec.encode(&pyramid, 0, false);
     let mut angle_list = vec![];
     let mut angles = vec![];
     for (angle, lines) in map {
@@ -125,4 +125,5 @@ fn dbg_screens() {
 
 fn main() {
     dbg_screens();
+    dbg_codec();
 }

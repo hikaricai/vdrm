@@ -84,7 +84,6 @@ struct AngleCtx {
 
 #[derive(Clone, PartialEq, Eq)]
 struct CtxParam {
-    angle_range: std::ops::Range<usize>,
     enb_screens: Vec<usize>,
 }
 struct Ctx {
@@ -98,11 +97,11 @@ struct Ctx {
 
 impl Ctx {
     fn new(param: CtxParam) -> Self {
-        let codec = vdrm_alg::Codec::new(param.angle_range.clone());
+        let codec = vdrm_alg::Codec::new();
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y - 1.0, z - 1.0))
+            .map(|(x, y, z)| (x, y + 1.0, z - 2.25))
             .collect();
         let optimze_speed_for_mbi5264 = false;
         let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);
@@ -158,7 +157,6 @@ pub fn draw(
     angle: Option<u32>,
     pitch: f64,
     yaw: f64,
-    angle_range: std::ops::Range<usize>,
     enb_screens: Vec<usize>,
 ) -> DrawResult<()> {
     static INIT_LOG: std::sync::Once = std::sync::Once::new();
@@ -168,10 +166,7 @@ pub fn draw(
     });
     log::info!("draw");
     let mut guard = CTX.lock().unwrap();
-    let param = CtxParam {
-        angle_range,
-        enb_screens,
-    };
+    let param = CtxParam { enb_screens };
     let ctx = guard.get_or_insert_with(|| Ctx::new(param.clone()));
     if ctx.param != param {
         *ctx = Ctx::new(param);
@@ -250,14 +245,14 @@ pub fn draw(
         let v_screens = ctx.screens.iter().enumerate().filter_map(|(idx, v)| {
             ctx.param.enb_screens.contains(&idx).then(|| {
                 let v_points = vdrm_alg::mirror_points(angle, &v.points);
-                Polygon::new(v_points, BLACK.mix(0.8))
+                Polygon::new(v_points, BLACK.mix(0.5))
             })
         });
         chart
             .draw_series(v_screens)?
             .label("V_SCREEN")
             .legend(|(x, y)| {
-                Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.1).filled())
+                Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.5).filled())
             });
     };
     let real_surface_points: PointSeries<_, _, Circle<_, _>, _> =
@@ -275,7 +270,7 @@ pub fn draw(
                 .draw_series([angle_ctx.mirror.polygon()])?
                 .label("MIRROR")
                 .legend(|(x, y)| {
-                    Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.5).filled())
+                    Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.1).filled())
                 });
 
             (angle_ctx.emu_pixels.clone(), angle_ctx.led_pixels.clone())
@@ -286,7 +281,7 @@ pub fn draw(
         PointSeries::new(emu, 1_f32, &RED.mix(0.3));
     chart
         .draw_series(emu_surface_points)?
-        .label("EMULATOR")
+        .label("VIRTUAL")
         .legend(|(x, y)| Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], RED.mix(0.5).filled()));
 
     let led_surface_points: PointSeries<_, _, Circle<_, _>, _> =

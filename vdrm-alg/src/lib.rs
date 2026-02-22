@@ -1,10 +1,10 @@
 use geo::{ClosestPoint, EuclideanDistance, EuclideanLength, LineInterpolatePoint};
 use std::collections::BTreeMap;
 
-pub const W_PIXELS: usize = 64;
-pub const H_PIXELS: usize = 32;
-// pub const W_PIXELS: usize = 192;
-// pub const H_PIXELS: usize = 96;
+// pub const W_PIXELS: usize = 64;
+// pub const H_PIXELS: usize = 32;
+pub const W_PIXELS: usize = 192;
+pub const H_PIXELS: usize = 96;
 const CIRCLE_R: f32 = 1.;
 pub const SCREEN_HEIGHT: f32 = SCREEN_ZOOM * CIRCLE_R * 2.;
 const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
@@ -105,8 +105,8 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
-        screens_with_rotate(std::f32::consts::PI / 8.)
-        // screens_with_rotate(0.)
+        // screens_with_rotate(std::f32::consts::PI / 8.)
+        screens_with_rotate(0.)
     };
 }
 

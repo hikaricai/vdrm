@@ -7,6 +7,33 @@ use web_sys::HtmlCanvasElement;
 
 static CTX: std::sync::Mutex<Option<Ctx>> = std::sync::Mutex::new(None);
 
+pub fn gen_rrds_surface() -> vdrm_alg::PixelSurface {
+    // const PATH: &'static str = "/Users/hikari/rust/vdrm-codec/frames/1738589846_rrds";
+    const SCREEN_WIDTH: usize = 256;
+    const SCREEN_HEIGHT: usize = 192;
+    const IMG_LEN: usize = SCREEN_HEIGHT * SCREEN_WIDTH + 1;
+    let img = include_bytes!("/Users/hikari/rust/vdrm-codec/frames/1738589846_rrds");
+    let img: &[u64] = unsafe { std::slice::from_raw_parts(img.as_ptr() as *const u64, IMG_LEN) };
+
+    let mut pixel_surface = vdrm_alg::PixelSurface::new();
+
+    for y in 0..SCREEN_HEIGHT {
+        for x in 0..SCREEN_HEIGHT {
+            let idx = x + 32 + y * SCREEN_WIDTH + 1;
+            let pixel = img[idx];
+            let abgr = (pixel >> 32) as u32;
+            let rgba = abgr.swap_bytes();
+            let z = (pixel & 0xFFFF) as u32;
+            let z = (z as f32) / 0xFFFF as f32;
+            let mut z = ((1.0 - z) * 96.0) as u32;
+            if rgba & 0xFFFF_FF00 == 0 {
+                z = 0;
+            }
+            pixel_surface.push((x as u32, y as u32, (z, rgba)));
+        }
+    }
+    return pixel_surface;
+}
 pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
     let mut pixel_surface = vdrm_alg::PixelSurface::new();
     let r = vdrm_alg::W_PIXELS as i32 / 2;
@@ -98,7 +125,7 @@ struct Ctx {
 impl Ctx {
     fn new(param: CtxParam) -> Self {
         let codec = vdrm_alg::Codec::new();
-        let pixel_surface = gen_pyramid_surface();
+        let pixel_surface = gen_rrds_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
             .map(|(x, y, z)| (x, y + 1.0, z - 2.25))

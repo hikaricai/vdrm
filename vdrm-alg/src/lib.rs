@@ -105,8 +105,8 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
-        // screens_with_rotate(std::f32::consts::PI / 8.)
-        screens_with_rotate(0.)
+        screens_with_rotate(std::f32::consts::PI / 8.)
+        // screens_with_rotate(0.)
     };
 }
 

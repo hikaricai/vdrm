@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
+mod plot2d;
 mod plot3d;
 
 #[global_allocator]
@@ -24,6 +25,14 @@ impl Chart {
         enb_screens: Vec<usize>,
     ) -> Result<(), JsValue> {
         plot3d::draw(canvas, angle, pitch, yaw, enb_screens).map_err(|err| err.to_string())?;
+        Ok(())
+    }
+    pub fn plot2d(
+        canvas: HtmlCanvasElement,
+        angle_offset: u32,
+        enb_screens: Vec<usize>,
+    ) -> Result<(), JsValue> {
+        plot2d::draw(canvas, angle_offset, enb_screens).map_err(|err| err.to_string())?;
         Ok(())
     }
 }

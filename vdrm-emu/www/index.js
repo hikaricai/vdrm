@@ -2,6 +2,7 @@
 // import { Chart } from "wasm-demo" and remove `setup` call from `bootstrap.js`.
 class Chart {}
 
+const plotType = document.getElementById("plot-type");
 const canvas = document.getElementById("canvas");
 const coord = document.getElementById("coord");
 const showall = document.getElementById("showall");
@@ -9,6 +10,11 @@ const angle = document.getElementById("angle");
 const pitch = document.getElementById("pitch");
 const yaw = document.getElementById("yaw");
 const screen_check = document.getElementById("screen_check");
+const control = document.getElementById("3d-control");
+
+const screen_check_2d = document.getElementById("screen_check_2d");
+const angle_2d = document.getElementById("angle_2d");
+const control_2d = document.getElementById("2d-control");
 
 let chart = null;
 
@@ -25,6 +31,7 @@ export function setup(WasmChart) {
 
 /** Add event listeners. */
 function setupUI() {
+  plotType.addEventListener("change", updatePlot);
   showall.addEventListener("change", updatePlot);
   screen_check.addEventListener("change", updatePlot);
   angle.addEventListener("change", updatePlot);
@@ -35,6 +42,10 @@ function setupUI() {
   pitch.addEventListener("input", updatePlot);
   window.addEventListener("resize", setupCanvas);
   window.addEventListener("mousemove", onMouseMove);
+
+  angle_2d.addEventListener("change", updatePlot);
+  angle_2d.addEventListener("input", updatePlot);
+  screen_check_2d.addEventListener("change", updatePlot);
 }
 
 /** Setup canvas to properly handle high DPI and redraw current plot. */
@@ -84,7 +95,28 @@ function updatePlot3d() {
   coord.innerText = `angle: ${angle_value} Pitch:${pitch_value}, Yaw:${yaw_value} Rendered in ${Math.ceil(end - start)}ms`;
 }
 
+function updatePlot2d() {
+  var enb_screens = [];
+  let angle_value = Number(angle_2d.value);
+  for (var i = 0; i < screen_check_2d.children.length; i++) {
+    var childElement = screen_check_2d.children[i];
+    if (childElement.checked) {
+      enb_screens.push(i);
+    }
+  }
+  Chart.plot2d(canvas, angle_value, enb_screens);
+}
+
 /** Redraw currently selected plot. */
 function updatePlot() {
-  updatePlot3d();
+  const selected = plotType.selectedOptions[0];
+  if (selected.value == "3d-plot") {
+    control_2d.classList.add("hide");
+    control.classList.remove("hide");
+    updatePlot3d();
+    return;
+  }
+  control.classList.add("hide");
+  control_2d.classList.remove("hide");
+  updatePlot2d();
 }

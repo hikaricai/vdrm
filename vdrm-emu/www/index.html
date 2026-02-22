@@ -18,28 +18,64 @@
                 <canvas id="canvas" width="600" height="600"></canvas>
             </div>
             <div id="control" class="grid-item">
-                <label for="showall">show all: </label>
-                <input type="checkbox" id="showall" checked /> <br />
-                <label for="screen_check">enb screens: </label>
-                <div id="screen_check">
-                    <input type="checkbox" checked />
-                    <input type="checkbox" />
-                    <input type="checkbox" checked />
+                <label for="plot-type">Select: </label>
+                <select id="plot-type">
+                    <option value="3d-plot" selected>3D Demo</option>
+                    <option value="wd-plot">2D Demo</option>
+                </select>
+                <div id="2d-control" class="hide">
+                    <label for="angle_2d">Angle 2d: </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="90"
+                        id="angle_2d"
+                        value="45"
+                    />
+                    <br />
+                    <label for="screen_check_2d">enb screens 2d: </label>
+                    <div id="screen_check_2d">
+                        <input type="checkbox" checked />
+                        <input type="checkbox" />
+                        <input type="checkbox" checked />
+                    </div>
                 </div>
-                <label for="angle">Angle: </label>
-                <input type="range" min="0" max="512" id="angle" value="0" />
-                <br />
-                <label for="pitch">Pitch: </label>
-                <input
-                    type="range"
-                    min="-157"
-                    max="157"
-                    id="pitch"
-                    value="-157"
-                />
-                <br />
-                <label for="yaw">Yaw: </label>
-                <input type="range" min="0" max="314" id="yaw" value="157" />
+                <div id="3d-control">
+                    <label for="showall">show all: </label>
+                    <input type="checkbox" id="showall" checked /> <br />
+                    <label for="screen_check">enb screens: </label>
+                    <div id="screen_check">
+                        <input type="checkbox" checked />
+                        <input type="checkbox" />
+                        <input type="checkbox" checked />
+                    </div>
+                    <label for="angle">Angle: </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="512"
+                        id="angle"
+                        value="0"
+                    />
+                    <br />
+                    <label for="pitch">Pitch: </label>
+                    <input
+                        type="range"
+                        min="-157"
+                        max="157"
+                        id="pitch"
+                        value="-157"
+                    />
+                    <br />
+                    <label for="yaw">Yaw: </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="314"
+                        id="yaw"
+                        value="157"
+                    />
+                </div>
             </div>
         </main>
         <footer>

@@ -1,4 +1,6 @@
-html, body, main {
+html,
+body,
+main {
     width: 100%;
     margin: 0;
     padding: 0;
@@ -19,10 +21,11 @@ main {
     align-items: center;
 }
 
-#coord, #status {
+#coord,
+#status {
     color: grey;
     font-size: 10px;
-    height: 15px
+    height: 15px;
 }
 
 #control {
@@ -52,4 +55,9 @@ footer {
 .grid-item {
     margin: 10px;
     border: 1px solid rgba(0, 0, 0, 0.8);
+}
+
+.hide {
+    visibility: hidden;
+    height: 0px;
 }

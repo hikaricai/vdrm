@@ -12,7 +12,8 @@ pub fn gen_rrds_surface() -> vdrm_alg::PixelSurface {
     const SCREEN_WIDTH: usize = 256;
     const SCREEN_HEIGHT: usize = 192;
     const IMG_LEN: usize = SCREEN_HEIGHT * SCREEN_WIDTH + 1;
-    let img = include_bytes!("/Users/hikari/rust/vdrm-codec/frames/1738589846_rrds");
+    // let img = include_bytes!("/Users/hikari/rust/vdrm-codec/frames/1738589846_rrds");
+    let img = "";
     let img: &[u64] = unsafe { std::slice::from_raw_parts(img.as_ptr() as *const u64, IMG_LEN) };
 
     let mut pixel_surface = vdrm_alg::PixelSurface::new();
@@ -125,7 +126,7 @@ struct Ctx {
 impl Ctx {
     fn new(param: CtxParam) -> Self {
         let codec = vdrm_alg::Codec::new();
-        let pixel_surface = gen_rrds_surface();
+        let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
             .map(|(x, y, z)| (x, y + 1.0, z - 2.25))

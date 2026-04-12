@@ -112,7 +112,8 @@ fn dbg_codec() {
 }
 
 fn dbg_screens() {
-    let screens = vdrm_alg::screens_with_rotate(0f32);
+    let rad_rotate = 0f32;
+    let screens = vdrm_alg::screens_with_rotate(rad_rotate, Some(std::f32::consts::PI / 8.0));
     let unit = 75f32;
     for (idx, s) in screens.iter().enumerate() {
         for p in [s.points[0], s.points[3]] {

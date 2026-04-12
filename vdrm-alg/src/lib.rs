@@ -11,7 +11,8 @@ const POINT_SIZE: f32 = SCREEN_ZOOM * 2. * CIRCLE_R / W_PIXELS as f32;
 // screem 位置和大小
 const SCREEN_ZOOM: f32 = 1.;
 // 修改这个值 越大成像越远 屏幕间距越大
-pub const SCREEN_OFFSET: f32 = 0.25;
+// pub const SCREEN_OFFSET: f32 = 0.25;
+pub const SCREEN_OFFSET: f32 = 0.05;
 pub const SCREEN_Z_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 pub const SCREEN_Y_OFFSET: f32 = -1.0 + SCREEN_OFFSET;
 // 八边形就x8 越大越清晰
@@ -105,12 +106,15 @@ lazy_static::lazy_static! {
         glam::Vec4::new(0.0, center_y, center_z, 1.0)
     };
     static ref SCREENS:[Screen; NUM_SCREENS]  = {
-        screens_with_rotate(std::f32::consts::PI / 8.)
-        // screens_with_rotate(0.)
+        screens_with_rotate(std::f32::consts::PI / 8., Some(std::f32::consts::PI / 8.))
+        // screens_with_rotate(0., None)
     };
 }
 
-pub fn screens_with_rotate(rad_rotate: f32) -> [Screen; NUM_SCREENS] {
+pub fn screens_with_rotate(
+    rad_rotate: f32,
+    offset_middle_screen: Option<f32>,
+) -> [Screen; NUM_SCREENS] {
     let z = SCREEN_Z_OFFSET;
 
     let depth = 2f32 * SCREEN_ZOOM;
@@ -134,6 +138,15 @@ pub fn screens_with_rotate(rad_rotate: f32) -> [Screen; NUM_SCREENS] {
     };
     let screen_r = Screen {
         points: screen_r.try_into().unwrap(),
+    };
+    let screen = if let Some(angle) = offset_middle_screen {
+        let screen_real_depth = 0.75;
+        let offset = screen_real_depth * angle.sin() / 2.;
+        let a = (a.0 - offset, a.1);
+        let b = (b.0 - offset, b.1);
+        Screen::new([a, b], z)
+    } else {
+        screen
     };
     [screen_l, screen, screen_r]
 }

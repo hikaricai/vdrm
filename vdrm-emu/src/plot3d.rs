@@ -43,7 +43,7 @@ pub fn gen_pyramid_surface() -> vdrm_alg::PixelSurface {
             let x_i32 = x as i32 - r;
             let y_i32 = y as i32 - r;
             let h = x_i32.abs() + y_i32.abs();
-            if h >= r {
+            if h >= 40 {
                 continue;
             }
             let z = (r - 1 - h) as u32;
@@ -126,10 +126,11 @@ struct Ctx {
 impl Ctx {
     fn new(param: CtxParam) -> Self {
         let codec = vdrm_alg::Codec::new();
+        // let pixel_surface = gen_rrds_surface();
         let pixel_surface = gen_pyramid_surface();
         let all_real_pixels = vdrm_alg::pixel_surface_to_float(&pixel_surface)
             .into_iter()
-            .map(|(x, y, z)| (x, y + 1.0, z - 2.25))
+            .map(|(x, y, z)| (x, y + 1.0, -z))
             .collect();
         let optimze_speed_for_mbi5264 = false;
         let angle_map = codec.encode(&pixel_surface, 0, optimze_speed_for_mbi5264);

@@ -3,6 +3,7 @@ use plotters::coord::ranged3d::ProjectionMatrix;
 use plotters::prelude::*;
 use plotters_canvas::CanvasBackend;
 use std::collections::BTreeMap;
+use vdrm_alg::mirror_points_f;
 use web_sys::HtmlCanvasElement;
 
 static CTX: std::sync::Mutex<Option<Ctx>> = std::sync::Mutex::new(None);
@@ -89,6 +90,7 @@ impl Mirror {
     }
 }
 
+#[derive(Clone, Copy)]
 struct Screen {
     points: [(f32, f32, f32); 4],
 }
@@ -270,6 +272,41 @@ pub fn draw(
         .legend(|(x, y)| {
             Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.9).filled())
         });
+    let screen = ctx.screens[1];
+    let angle_s = 90f32 - 22.5f32;
+    let angle_e = 90f32 + 22.5f32;
+    let mut screen_s = mirror_points_f(angle_s.to_radians(), &screen.points);
+    screen_s.push(screen_s[0]);
+    let mut screen_e = mirror_points_f(angle_e.to_radians(), &screen.points);
+    screen_e.push(screen_e[0]);
+    let mut elements = vec![];
+    let board_s = PathElement::new(screen_s, BLACK.mix(0.5));
+    let board_e = PathElement::new(screen_e, BLACK.mix(0.5));
+
+    elements.extend([board_s, board_e]);
+    let num_points = 10;
+    let mut boards = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+
+    for i in 0..num_points {
+        let angle = angle_s + (angle_e - angle_s) * (i as f32) / ((num_points - 1) as f32);
+        let points = mirror_points_f(angle.to_radians(), &screen.points);
+        let points: [(f32, f32, f32); 4] = points.try_into().unwrap();
+        boards[0].push(points[0]);
+        boards[1].push(points[1]);
+        boards[2].push(points[2]);
+        boards[3].push(points[3]);
+    }
+    for board in boards {
+        let e = PathElement::new(board, BLACK.mix(0.5));
+        elements.push(e);
+    }
+    chart
+        .draw_series(elements)?
+        .label("BOARD")
+        .legend(|(x, y)| {
+            Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLACK.mix(0.5).filled())
+        });
+
     if let Some(angle) = angle {
         let v_screens = ctx.screens.iter().enumerate().filter_map(|(idx, v)| {
             ctx.param.enb_screens.contains(&idx).then(|| {

@@ -21,7 +21,30 @@ let chart = null;
 /** Main entry point */
 export function main() {
   setupUI();
+  applyHash();
   setupCanvas();
+}
+
+/** Map between plot-type select value and url hash. */
+const HASH_TO_VALUE = { "#2d": "wd-plot", "#3d": "3d-plot" };
+const VALUE_TO_HASH = { "wd-plot": "#2d", "3d-plot": "#3d" };
+
+/** Read location.hash and update the selected plot type. */
+function applyHash() {
+  const value = HASH_TO_VALUE[window.location.hash] || "3d-plot";
+  if (plotType.value !== value) {
+    plotType.value = value;
+  }
+  updatePlot();
+}
+
+/** Write the currently selected plot type back to location.hash. */
+function syncHash() {
+  const hash = VALUE_TO_HASH[plotType.value] || "#3d";
+  if (window.location.hash !== hash) {
+    window.location.hash = hash;
+  }
+  updatePlot();
 }
 
 /** This function is used in `bootstrap.js` to setup imports. */
@@ -31,7 +54,8 @@ export function setup(WasmChart) {
 
 /** Add event listeners. */
 function setupUI() {
-  plotType.addEventListener("change", updatePlot);
+  plotType.addEventListener("change", syncHash);
+  window.addEventListener("hashchange", applyHash);
   showall.addEventListener("change", updatePlot);
   screen_check.addEventListener("change", updatePlot);
   angle.addEventListener("change", updatePlot);

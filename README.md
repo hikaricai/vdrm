@@ -1,37 +1,27 @@
 # vdrm
-## Volumetric Display using Rotating Mirror(early stage)
-An idea of Volumetric Display by changing the optical path with two spinning mirrors
-
-<a target="_blank"><img src="images/schematic_diagram.jpg" width="583" height="640" border="10" /></a>
-
-The location of the rotating 45° mirror 10 is fixed. The vertical mirror 9(can also be replaced with a led screen) is doing the circular motion, always facing the 45° mirror with the same angular velocity. When watching from the top, the optical path from transparent screen 11 to eye is periodically changed.
-
-<a href="https://youtube.com/shorts/yh6b7pyUaBM" target="_blank"><img src="images/demo.jpg" width="800" height="600" border="10" /></a>
-
-## version 2.0
-<a target="_blank"><img src="images/vdrm2_hardware.jpg" width="583" height="640" border="10" /></a>
-
-version 2.0 demo hardware with one mirror and three surrouding led screens
-
-<a target="_blank"><img src="images/half_pyramid.jpg" width="583" height="640" border="10" /></a>
-
-showing a half pyramid
 
 hackaday: https://hackaday.io/project/194714-volumetric-display-using-rotating-mirror
 
-Video: https://youtube.com/shorts/WtBLADxNRh4
+## Volumetric Display using Rotating Mirror(early stage)
+An idea of Volumetric Display by changing the optical path with two spinning mirrors
 
-Video: https://www.youtube.com/shorts/ZilCZabeLMg (debuging with single mirror and led)
 
-Video: https://www.youtube.com/shorts/ft3zD9OViyE (debuging with two mirrors and led)
+<a href="https://youtube.com/shorts/yh6b7pyUaBM" target="_blank"><img src="images/vdrm1_hardware.jpg" width="400" height="300" border="10" /></a>
 
-Video: https://www.youtube.com/shorts/52YA3tK1XmA (debuging with single mirror and led, showing a volumetric Aescartes Heart Curve.)
+## version 2.0
+<a target="_blank"><img src="images/vdrm2_hardware.jpg" width="300" height="300" border="10" /></a>
 
-Video: https://www.youtube.com/shorts/yh6b7pyUaBM (debuging with high speed camera)
+version 2.0 demo hardware with one mirror and three surrouding led screens
 
-Video: https://www.youtube.com/shorts/uKBhVhGyDE0 (debuging with one mirror and three surrouding led screens)
+<a target="_blank"><img src="images/half_pyramid.jpg" width="300" height="300" border="10" /></a>
 
-Video: https://www.youtube.com/shorts/99Vo0eT40mk (showing a half pyramid)
+showing a half pyramid
 
 ## version 3.0
-Working in progress, just replace the spinning mirror with aska3d's ASKA3D-Plate, so the volumetric image will be show in midair and become touchable.
+<a target="_blank"><img src="images/vdrm3_hardware.jpg" width="300" height="300" border="10" /></a>
+
+version 3.0 demo hardware 
+
+Video: https://www.youtube.com/watch?v=ltCB7yHVI58 (showing a car)
+
+Video: https://www.youtube.com/shorts/buwWeIkI5tU (some simple 3d models)

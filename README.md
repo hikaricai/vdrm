@@ -2,6 +2,8 @@
 
 hackaday: https://hackaday.io/project/194714-volumetric-display-using-rotating-mirror
 
+emulator: https://hikaricai.github.io/vdrm/
+
 ## Volumetric Display using Rotating Mirror(early stage)
 An idea of Volumetric Display by changing the optical path with two spinning mirrors
 

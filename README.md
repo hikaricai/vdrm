@@ -24,6 +24,7 @@ showing a half pyramid
 
 version 3.0 demo hardware 
 
-Video: https://www.youtube.com/watch?v=ltCB7yHVI58 (showing a car)
+Video: [https://www.youtube.com/shorts/buwWeIkI5tU](https://www.youtube.com/shorts/rYe8YjsdQm8) (some simple 3d models)
 
-Video: https://www.youtube.com/shorts/buwWeIkI5tU (some simple 3d models)
+
+

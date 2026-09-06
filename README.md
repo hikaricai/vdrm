@@ -26,5 +26,7 @@ version 3.0 demo hardware
 
 Video: [https://www.youtube.com/shorts/buwWeIkI5tU](https://www.youtube.com/shorts/rYe8YjsdQm8) (some simple 3d models)
 
+Video: [https://www.youtube.com/shorts/9Gu-wVRxvJ0](https://www.youtube.com/shorts/9Gu-wVRxvJ0) (some simple 3d models)
+
 
 
